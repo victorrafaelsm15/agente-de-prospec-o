@@ -46,6 +46,7 @@ function rowToLead(row: LeadRow): Lead {
     notes: row.notes ?? [],
     nextAction: row.next_action,
     nextActionDate: row.next_action_date,
+    briefing: row.briefing,
     source: row.source,
     evidence: row.evidence ?? [],
     researchQuery: row.research_query,
@@ -81,6 +82,7 @@ function leadToRow(lead: NewLead): LeadInsert {
     notes: lead.notes ?? [],
     next_action: lead.nextAction,
     next_action_date: lead.nextActionDate,
+    briefing: lead.briefing,
     source: lead.source,
     evidence: lead.evidence,
     research_query: lead.researchQuery,
@@ -238,6 +240,17 @@ export class SupabaseLeadsRepository implements LeadsRepository {
       .select("*")
       .maybeSingle();
     if (error) throw new Error(`Erro ao atualizar mensagem: ${error.message}`);
+    return data ? rowToLead(data as LeadRow) : null;
+  }
+
+  async updateBriefing(id: string, briefing: string): Promise<Lead | null> {
+    const { data, error } = await this.client()
+      .from("leads")
+      .update({ briefing })
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+    if (error) throw new Error(`Erro ao salvar briefing: ${error.message}`);
     return data ? rowToLead(data as LeadRow) : null;
   }
 

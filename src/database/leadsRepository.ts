@@ -30,6 +30,7 @@ export interface LeadsRepository {
   updateStatus(id: string, status: LeadStatus): Promise<Lead | null>;
   bulkUpdateStatus(ids: string[], status: LeadStatus): Promise<number>;
   updateOutreachMessage(id: string, message: string): Promise<Lead | null>;
+  updateBriefing(id: string, briefing: string): Promise<Lead | null>;
   updateNextAction(
     id: string,
     nextAction: string | null,

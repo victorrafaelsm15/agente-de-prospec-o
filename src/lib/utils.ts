@@ -14,6 +14,18 @@ export function formatDate(iso: string): string {
   }).format(date);
 }
 
+/**
+ * Formata uma data "pura" (sem horário, ex.: "2026-10-02", como as colunas
+ * `date` do Postgres) sem passar por conversão de timezone — usar
+ * `new Date("2026-10-02")` interpretaria como UTC e poderia exibir o dia
+ * errado dependendo do fuso do servidor. Aqui é só manipulação de string.
+ */
+export function formatDateOnly(dateOnly: string): string {
+  const [year, month, day] = dateOnly.slice(0, 10).split("-");
+  if (!year || !month || !day) return dateOnly;
+  return `${day}/${month}/${year}`;
+}
+
 export function formatDateTime(iso: string): string {
   const date = new Date(iso);
   return new Intl.DateTimeFormat("pt-BR", {

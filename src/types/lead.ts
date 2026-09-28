@@ -2,21 +2,28 @@ export type LeadStatus =
   | "NOVO"
   | "ANALISADO"
   | "INTERESSANTE"
+  | "QUALIFICADO"
+  | "CONTATO_PENDENTE"
   | "CONTATADO"
   | "RESPONDEU"
   | "REUNIAO"
   | "PROPOSTA"
+  | "NEGOCIACAO"
   | "CLIENTE"
   | "DESCARTADO";
 
+/** Ordem do pipeline comercial (V3) — também define a ordem das colunas do Kanban. */
 export const LEAD_STATUSES: LeadStatus[] = [
   "NOVO",
   "ANALISADO",
   "INTERESSANTE",
+  "QUALIFICADO",
+  "CONTATO_PENDENTE",
   "CONTATADO",
   "RESPONDEU",
   "REUNIAO",
   "PROPOSTA",
+  "NEGOCIACAO",
   "CLIENTE",
   "DESCARTADO",
 ];
@@ -106,6 +113,7 @@ export interface Lead {
   notes: Note[];
   nextAction: string | null;
   nextActionDate: string | null;
+  briefing: string | null;
 
   source: string;
   evidence: Evidence[];
@@ -174,4 +182,99 @@ export interface ActivityItem {
   id: string;
   message: string;
   createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// V3 — SDR AI: canais de contato, reuniões, follow-ups, auditoria e config.
+// ---------------------------------------------------------------------------
+
+export type Channel = "WHATSAPP" | "EMAIL" | "INSTAGRAM" | "TELEFONE" | "OUTRO";
+export const CHANNELS: Channel[] = ["WHATSAPP", "EMAIL", "INSTAGRAM", "TELEFONE", "OUTRO"];
+
+export type InteractionDirection = "SAIDA" | "ENTRADA";
+export type InteractionStatus = "RASCUNHO" | "ENVIADO" | "FALHOU" | "RECEBIDO";
+
+export interface Interaction {
+  id: string;
+  leadId: string;
+  channel: Channel;
+  direction: InteractionDirection;
+  message: string | null;
+  status: InteractionStatus;
+  occurredAt: string;
+  createdAt: string;
+}
+
+export type MeetingStatus = "AGENDADA" | "REALIZADA" | "CANCELADA";
+
+export interface Meeting {
+  id: string;
+  leadId: string;
+  scheduledAt: string;
+  notes: string | null;
+  status: MeetingStatus;
+  createdAt: string;
+}
+
+export type FollowUpStatus = "PENDENTE" | "CONCLUIDO" | "IGNORADO";
+
+export interface FollowUp {
+  id: string;
+  leadId: string;
+  dueDate: string;
+  reason: string | null;
+  status: FollowUpStatus;
+  createdAt: string;
+}
+
+export interface ActivityLogEntry {
+  id: string;
+  leadId: string | null;
+  actor: "ia" | "usuario" | "sistema";
+  action: string;
+  description: string;
+  createdAt: string;
+}
+
+export interface CommercialSettings {
+  businessName: string | null;
+  services: string | null;
+  differentiator: string | null;
+  targetAudience: string | null;
+  tone: "profissional" | "consultivo" | "direto" | "casual" | null;
+  emailSignature: string | null;
+  updatedAt: string;
+}
+
+export type OutreachStyle = "DIRETA" | "CONSULTIVA" | "CASUAL" | "PROFISSIONAL";
+
+/** Recomendação de próxima ação calculada por regras — sempre com o motivo explícito. */
+export interface NextActionRecommendation {
+  action: string;
+  reason: string;
+}
+
+export interface AttentionItem {
+  leadId: string;
+  leadName: string;
+  reason: string;
+}
+
+export interface AttentionSummary {
+  readyForContact: AttentionItem[];
+  followUpsDueToday: AttentionItem[];
+  awaitingResponse: AttentionItem[];
+  responded: AttentionItem[];
+  upcomingMeetings: AttentionItem[];
+}
+
+export interface CommercialRates {
+  contactRate: { value: number | null; numerator: number; denominator: number };
+  responseRate: { value: number | null; numerator: number; denominator: number };
+  meetingRate: { value: number | null; numerator: number; denominator: number };
+  conversionRate: { value: number | null; numerator: number; denominator: number };
+}
+
+export interface Insight {
+  label: string;
 }

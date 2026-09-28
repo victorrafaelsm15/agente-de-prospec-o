@@ -15,6 +15,16 @@ critérios de qualificação no Agente, notas internas, próxima ação, histór
 de status, exportação CSV, dashboard com distribuições, e uma revisão geral
 de UI (hover/active/loading em todos os elementos interativos).
 
+**V3 — SDR AI:** uma central de prospecção em `/sdr` ("o que precisa da sua
+atenção hoje"), assistente de IA que responde perguntas usando somente os
+dados reais da sua base, pipeline comercial expandido (Qualificado, Contato
+pendente, Negociação), histórico de contatos multicanal, follow-ups e
+reuniões, recomendação de próxima ação sempre com o motivo explícito, geração
+de mensagens em 4 estilos (Direta/Consultiva/Casual/Profissional) com fluxo
+de aprovação humana antes do envio, briefing comercial e resumo rápido do
+lead por IA, `/settings` com o perfil comercial usado para personalizar as
+mensagens, e limite de chamadas de IA por minuto.
+
 ## Sumário
 
 - [Como funciona](#como-funciona)
@@ -106,6 +116,9 @@ correspondente.
 | `ANTHROPIC_MODEL` | Opcional | Padrão: `claude-sonnet-5` |
 | `GOOGLE_PLACES_API_KEY` | Opcional | Habilita a busca real de negócios |
 | `ENABLE_DEMO_MODE` | Opcional (dev) | `true` mostra negócios fictícios claramente rotulados quando a busca real não está configurada |
+| `WHATSAPP_ACCESS_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | Opcional (V3) | WhatsApp Business Cloud API (Meta, oficial). Sem isso, o envio abre o wa.me manualmente |
+| `EMAIL_API_KEY` / `EMAIL_FROM_ADDRESS` | Opcional (V3) | Provedor de e-mail transacional (ex.: Resend). Sem isso, o envio abre seu cliente de e-mail via mailto: |
+| `AI_RATE_LIMIT_PER_MINUTE` | Opcional (V3) | Limite de chamadas de IA por minuto por endpoint. Padrão: `20` |
 
 **Nunca** coloque valores reais no `.env.example` (ele é versionado). Use
 sempre `.env.local` (ignorado pelo git) para as chaves reais.
@@ -115,12 +128,13 @@ sempre `.env.local` (ignorado pelo git) para as chaves reais.
 1. Crie um projeto gratuito em [supabase.com](https://supabase.com).
 2. **Projeto novo:** no SQL Editor, rode o conteúdo de
    [`database/schema.sql`](database/schema.sql) (schema completo, já com os
-   campos da V2). Isso cria a tabela `leads`, os índices e habilita Row
-   Level Security.
-   **Projeto que já rodava a V1:** rode apenas
-   [`database/migrations/002_v2_crm_fields.sql`](database/migrations/002_v2_crm_fields.sql) —
-   é aditivo, não apaga nenhum lead existente. O histórico completo de
-   migrations fica em [`database/migrations/`](database/migrations/).
+   campos da V3). Isso cria a tabela `leads` e as tabelas de CRM avançado
+   (`interactions`, `meetings`, `follow_ups`, `activity_log`, `settings`),
+   os índices e habilita Row Level Security.
+   **Projeto que já rodava uma versão anterior:** rode, em ordem, as
+   migrations que ainda não aplicou em
+   [`database/migrations/`](database/migrations/) (001 = V1, 002 = V2,
+   003 = V3) — cada uma é aditiva e não apaga nenhum lead existente.
 3. Em **Project Settings → API Keys**, copie:
    - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
    - `service_role` (ou `secret key`, em projetos novos) → `SUPABASE_SERVICE_ROLE_KEY`
@@ -235,41 +249,105 @@ Não configure `ENABLE_DEMO_MODE=true` em produção.
 - Design responsivo (desktop, tablet e mobile) com estados de carregamento,
   vazio e erro tratados em toda a aplicação.
 
+**Novo na V3 — SDR AI:**
+- **`/sdr`, a central de prospecção:** "o que precisa da sua atenção hoje"
+  (leads prontos para contato, follow-ups pendentes, quem respondeu, reuniões
+  agendadas), cada item clicável levando direto ao lead; insights calculados
+  a partir dos dados reais (ex.: "25% dos leads têm site desatualizado");
+  atividade recente (trilha de auditoria de ações da IA e do usuário).
+- **Assistente de IA** em `/sdr`: responde perguntas em linguagem natural
+  (“quais leads devo abordar hoje?”) usando estritamente os dados reais da
+  base — testado explicitamente para recusar perguntas sem dados
+  disponíveis (ex.: faturamento) em vez de inventar uma resposta.
+- **Pipeline comercial expandido:** NOVO → ANALISADO → INTERESSANTE →
+  QUALIFICADO → CONTATO PENDENTE → CONTATADO → RESPONDEU → REUNIÃO →
+  PROPOSTA → NEGOCIAÇÃO → CLIENTE (+ DESCARTADO), refletido automaticamente
+  no Kanban.
+- **Histórico de contatos multicanal** (WhatsApp/E-mail/Instagram/Telefone)
+  por lead, com direção (enviado/recebido) e status — permite registrar
+  manualmente quando um lead responde, para alimentar as recomendações.
+- **Geração de abordagem em 4 estilos** (Direta, Consultiva, Casual,
+  Profissional) para WhatsApp e e-mail (assunto + corpo + assinatura),
+  personalizada com o perfil comercial de `/settings`.
+- **Fluxo de aprovação humana no envio:** a IA gera, você revisa e edita
+  livremente, confirma explicitamente ("esta mensagem será enviada para o
+  lead") e só então o WhatsApp/e-mail abre com o conteúdo pronto — a
+  aplicação nunca envia nada sem essa confirmação, e registra o resultado
+  (enviado/falhou) no histórico.
+- **Envio real opcional via API oficial:** se `WHATSAPP_ACCESS_TOKEN` +
+  `WHATSAPP_PHONE_NUMBER_ID` (WhatsApp Business Cloud API, Meta) ou
+  `EMAIL_API_KEY` + `EMAIL_FROM_ADDRESS` (ex.: Resend) estiverem
+  configurados, o envio acontece direto pelo servidor; sem isso, abre o
+  wa.me/mailto: para você enviar manualmente — nunca automação não-oficial.
+- **Follow-ups e reuniões** por lead, com sugestão de próxima ação sempre
+  acompanhada do motivo (ex.: "última mensagem enviada há 4 dias, sem
+  resposta") — calculada por regras determinísticas, nunca uma "opinião"
+  da IA sem justificativa.
+- **Briefing comercial e resumo rápido** gerados por IA a partir dos dados
+  já coletados (preparação para a V4 — ainda não é uma proposta).
+- **`/settings`:** perfil comercial (o que você vende, diferencial, público,
+  tom, assinatura de e-mail) usado para personalizar mensagens e briefings,
+  e painel de status de todas as integrações externas.
+- **Taxas comerciais reais no Dashboard** (contato, resposta, reunião,
+  conversão), sempre calculadas a partir do status dos leads — mostra "dados
+  insuficientes para calcular" em vez de uma taxa fabricada quando o
+  denominador é zero.
+- **Rate limiting** em memória nos endpoints que chamam a Anthropic API
+  (padrão: 20 chamadas/minuto por endpoint), para evitar custo inesperado.
+- **Trilha de auditoria** (`activity_log`) de ações importantes da IA e do
+  usuário (análise gerada, mensagem gerada, envio, mudança de status, etc.).
+
 ## O que depende de configuração externa
 
 | Funcionalidade | Depende de | Sem a chave |
 |---|---|---|
 | Persistência real dos leads | Supabase | Usa arquivo local (`.data/leads.json`), só para dev |
+| Interações, reuniões, follow-ups, configurações, SDR AI | Supabase | Indisponíveis no modo de arquivo local (mensagem clara na interface) |
 | Busca de negócios reais | Google Places API | Mostra "Pesquisa externa não configurada" (ou dados de demonstração com `ENABLE_DEMO_MODE=true`) |
-| Análise e mensagem geradas por IA | Anthropic Claude | Usa geração heurística baseada em regras, claramente identificada na interface |
+| Análise, mensagens, briefing, resumo e assistente de IA | Anthropic Claude | Usa geração heurística baseada em regras, claramente identificada na interface |
+| Envio real de WhatsApp | WhatsApp Business Cloud API (Meta) | Abre o wa.me manualmente; você confirma o envio |
+| Envio real de e-mail | Provedor de e-mail transacional (ex.: Resend) | Abre seu cliente de e-mail via mailto:; você confirma o envio |
 | Pesquisa web genérica (`searchWeb`) | Nenhum provedor configurado nesta versão | Reservada para uso futuro (ex.: enriquecer leads com notícias/avaliações) |
 
 ## Arquitetura do código
 
 ```
 src/
-  app/                    # Rotas (App Router): dashboard, /agent, /leads, /leads/[id], API routes
-  agents/                 # ProspectingAgent — orquestra as ferramentas
-  tools/                  # Ferramentas do agente, uma responsabilidade por arquivo
-  database/               # Interface do repositório + adapters (Supabase / arquivo local)
-  lib/                    # env, scoring, utils, cliente Supabase, cliente Anthropic, hooks
-  components/             # Componentes de UI, layout, dashboard, agente e leads
-  types/                  # Tipos compartilhados (Lead, filtros, etc.)
-database/schema.sql        # Schema completo do Supabase/PostgreSQL (V1+V2)
+  app/                    # Rotas (App Router): dashboard, /agent, /leads, /leads/[id],
+                           #   /sdr, /settings, API routes
+  agents/                 # ProspectingAgent — orquestra as ferramentas de pesquisa
+  tools/                  # Ferramentas, uma responsabilidade por arquivo: findBusinesses,
+                           #   inspectWebsite, analyzeWebsite, generateLeadAnalysis,
+                           #   generateOutreachMessage, generateEmailMessage, generateBriefing,
+                           #   summarizeLead, computeNextActionRecommendation,
+                           #   answerSdrQuestion, sendWhatsapp, sendEmail, saveLead, searchWeb
+  database/               # Repositório de leads (interface + adapters Supabase/arquivo) +
+                           #   sdrData.ts (interações, reuniões, follow-ups, auditoria, settings)
+  lib/                    # env, scoring, sdrInsights (taxas/insights), rateLimit, utils,
+                           #   contactLinks, clientes Supabase/Anthropic, hooks
+  components/             # UI, layout, dashboard, agent, leads, sdr, settings
+  types/                  # Tipos compartilhados (Lead, Interaction, Meeting, FollowUp, etc.)
+database/schema.sql        # Schema completo do Supabase/PostgreSQL (V1+V2+V3)
 database/migrations/       # Histórico de migrations (aplicar em projetos já existentes)
 ```
 
 A arquitetura foi pensada para crescer sem reescrever o agente: novas
-ferramentas (ex.: um provedor real de `searchWeb`, enriquecimento via
-LinkedIn/Instagram, geração de proposta) entram em `src/tools/` com uma
-interface própria e são plugadas no `ProspectingAgent` sem afetar as
-existentes.
+ferramentas entram em `src/tools/` com uma interface própria. **Nota de
+honestidade sobre a V3:** o `ProspectingAgent` continua chamando ferramentas
+de forma explícita e determinística (como na V1/V2) — não é um loop de
+tool-calling dinâmico onde um modelo decide quais funções chamar em tempo de
+execução. As recomendações de próxima ação e follow-up (`computeNextActionRecommendation`)
+também são 100% regras determinísticas, não a IA "opinando" — isso é
+deliberado, para manter todo output explicável e auditável antes de evoluir
+para um agente com tool-calling real em versões futuras.
 
-### Fora do escopo desta V2 (propositalmente)
+### Fora do escopo desta V3 (propositalmente)
 
-Envio automático de mensagens (WhatsApp/e-mail), follow-ups automáticos,
-múltiplos agentes especializados, geração automática de proposta/briefing,
-cobrança e sistema de usuários complexo ficam para versões futuras (V3+),
-conforme definido no escopo do produto. A arquitetura (ferramentas
-desacopladas, histórico de status, evidências rastreáveis) já foi pensada
-para suportar essas evoluções sem reescrever o que existe.
+Geração final de propostas/PDF, cobrança, marketplace, sistema de usuários
+multiusuário/multiempresa, automação de envio sem aprovação humana,
+integração de calendário real (Google Calendar/Outlook) e qualquer técnica
+para contornar bloqueios de plataformas (WhatsApp/Instagram) ficam para
+versões futuras (V4+), conforme definido no escopo do produto. A arquitetura
+(tabelas relacionais para interações/reuniões/follow-ups, trilha de
+auditoria, campo `briefing` no lead) já foi pensada para suportar a V4
+(Proposal AI) sem reescrever o que existe.

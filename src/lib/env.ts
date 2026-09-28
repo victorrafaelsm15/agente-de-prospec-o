@@ -17,6 +17,21 @@ export const env = {
   googlePlacesApiKey: readEnv("GOOGLE_PLACES_API_KEY"),
 
   demoModeEnabled: readEnv("ENABLE_DEMO_MODE") === "true",
+
+  // WhatsApp Business Cloud API (Meta) — oficial. Sem isso, o envio de
+  // WhatsApp abre o link wa.me manualmente (o usuário envia pelo próprio
+  // WhatsApp) e o sistema apenas registra a interação.
+  whatsappAccessToken: readEnv("WHATSAPP_ACCESS_TOKEN"),
+  whatsappPhoneNumberId: readEnv("WHATSAPP_PHONE_NUMBER_ID"),
+
+  // Provedor de e-mail transacional (ex.: Resend). Sem isso, o envio de
+  // e-mail abre o cliente de e-mail do usuário via mailto: e o sistema
+  // apenas registra a interação.
+  emailApiKey: readEnv("EMAIL_API_KEY"),
+  emailFromAddress: readEnv("EMAIL_FROM_ADDRESS"),
+
+  // Limite de chamadas de IA por minuto (proteção de custo/abuso). Padrão: 20.
+  aiRateLimitPerMinute: Number(readEnv("AI_RATE_LIMIT_PER_MINUTE") ?? "20"),
 };
 
 export const isSupabaseConfigured = Boolean(
@@ -26,3 +41,9 @@ export const isSupabaseConfigured = Boolean(
 export const isAnthropicConfigured = Boolean(env.anthropicApiKey);
 
 export const isGooglePlacesConfigured = Boolean(env.googlePlacesApiKey);
+
+export const isWhatsappApiConfigured = Boolean(
+  env.whatsappAccessToken && env.whatsappPhoneNumberId
+);
+
+export const isEmailApiConfigured = Boolean(env.emailApiKey && env.emailFromAddress);

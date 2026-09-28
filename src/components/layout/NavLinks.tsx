@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Sparkles, Users } from "lucide-react";
+import { LayoutDashboard, Sparkles, Users, Radar, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/sdr", label: "SDR AI", icon: Radar },
   { href: "/agent", label: "Agente", icon: Sparkles },
   { href: "/leads", label: "Leads", icon: Users },
+  { href: "/settings", label: "Configurações", icon: Settings },
 ];
 
 export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {

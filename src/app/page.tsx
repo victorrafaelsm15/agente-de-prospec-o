@@ -6,16 +6,18 @@ import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { BarList } from "@/components/dashboard/BarList";
 import { TopOpportunities } from "@/components/dashboard/TopOpportunities";
 import { RecentResearch } from "@/components/dashboard/RecentResearch";
+import { CommercialRatesCard } from "@/components/dashboard/CommercialRatesCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { STATUS_LABELS } from "@/lib/constants";
+import { computeCommercialRates } from "@/lib/sdrInsights";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const repository = await getLeadsRepository();
-  const [stats, recent, statusDistribution, scoreDistribution, recentResearch, topOpportunities] =
+  const [stats, recent, statusDistribution, scoreDistribution, recentResearch, topOpportunities, allLeads] =
     await Promise.all([
       repository.getStats(),
       repository.getRecent(8),
@@ -23,7 +25,9 @@ export default async function DashboardPage() {
       repository.getScoreDistribution(),
       repository.getRecentResearch(5),
       repository.getTopOpportunities(5),
+      repository.listAll({}),
     ]);
+  const rates = computeCommercialRates(allLeads);
 
   const isEmpty = stats.total === 0;
 
@@ -117,6 +121,10 @@ export default async function DashboardPage() {
                 />
               </CardContent>
             </Card>
+          </div>
+
+          <div className="mt-6">
+            <CommercialRatesCard rates={rates} />
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">

@@ -220,6 +220,7 @@ export class ProspectingAgent {
           notes: [],
           nextAction: null,
           nextActionDate: null,
+          briefing: null,
           source: candidate.source,
           evidence,
           researchQuery: `${criteria.niche} em ${criteria.city}, ${criteria.state}`,

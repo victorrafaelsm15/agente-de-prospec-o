@@ -209,6 +209,17 @@ export class FileLeadsRepository implements LeadsRepository {
     });
   }
 
+  async updateBriefing(id: string, briefing: string): Promise<Lead | null> {
+    return this.enqueue(async () => {
+      const leads = await this.readAll();
+      const idx = leads.findIndex((l) => l.id === id);
+      if (idx === -1) return null;
+      leads[idx] = { ...leads[idx], briefing, updatedAt: new Date().toISOString() };
+      await this.writeAll(leads);
+      return leads[idx];
+    });
+  }
+
   async updateNextAction(
     id: string,
     nextAction: string | null,
