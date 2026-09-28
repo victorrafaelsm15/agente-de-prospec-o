@@ -1,18 +1,42 @@
 import Link from "next/link";
-import { Users, Sparkles, TrendingUp, MessageCircle, Award, ArrowRight } from "lucide-react";
+import { Users, Sparkles, TrendingUp, MessageCircle, Award, ArrowRight, Heart } from "lucide-react";
 import { getLeadsRepository, usingLocalFileDatabase } from "@/database";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
+import { BarList } from "@/components/dashboard/BarList";
+import { TopOpportunities } from "@/components/dashboard/TopOpportunities";
+import { RecentResearch } from "@/components/dashboard/RecentResearch";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { STATUS_LABELS } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const repository = await getLeadsRepository();
-  const [stats, recent] = await Promise.all([repository.getStats(), repository.getRecent(8)]);
+  const [stats, recent, statusDistribution, scoreDistribution, recentResearch, topOpportunities] =
+    await Promise.all([
+      repository.getStats(),
+      repository.getRecent(8),
+      repository.getStatusDistribution(),
+      repository.getScoreDistribution(),
+      repository.getRecentResearch(5),
+      repository.getTopOpportunities(5),
+    ]);
 
   const isEmpty = stats.total === 0;
+
+  const scoreLabels: Record<string, string> = {
+    ALTA: "Alta oportunidade",
+    MEDIA: "Média oportunidade",
+    BAIXA: "Baixa oportunidade",
+  };
+  const scoreColors: Record<string, string> = {
+    ALTA: "bg-emerald-500",
+    MEDIA: "bg-amber-500",
+    BAIXA: "bg-slate-400",
+  };
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
@@ -54,12 +78,50 @@ export default async function DashboardPage() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <StatCard label="Total de leads" value={stats.total} icon={Users} accent="brand" />
             <StatCard label="Novos" value={stats.novos} icon={Sparkles} />
             <StatCard label="Alta prioridade" value={stats.altaPrioridade} icon={TrendingUp} accent="success" />
             <StatCard label="Contatados" value={stats.contatados} icon={MessageCircle} />
+            <StatCard label="Respondeu" value={stats.respondeu} icon={MessageCircle} />
+            <StatCard label="Reuniões" value={stats.reuniao} icon={Users} />
+            <StatCard label="Propostas" value={stats.proposta} icon={Heart} />
             <StatCard label="Clientes" value={stats.clientes} icon={Award} accent="success" />
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Distribuição por status</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BarList
+                  items={statusDistribution
+                    .filter((s) => s.count > 0)
+                    .map((s) => ({ label: STATUS_LABELS[s.status], count: s.count }))}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Distribuição por score</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BarList
+                  items={scoreDistribution.map((s) => ({
+                    label: scoreLabels[s.range],
+                    count: s.count,
+                    colorClass: scoreColors[s.range],
+                  }))}
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <TopOpportunities leads={topOpportunities} />
+            <RecentResearch items={recentResearch} />
           </div>
 
           <div className="mt-6">

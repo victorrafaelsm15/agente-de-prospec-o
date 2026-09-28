@@ -1,17 +1,16 @@
 import Link from "next/link";
 import { Users, Sparkles } from "lucide-react";
 import { getLeadsRepository } from "@/database";
-import { LeadsFilters } from "@/components/leads/LeadsFilters";
-import { LeadsTable } from "@/components/leads/LeadsTable";
+import { LeadsFilters, type LeadsView } from "@/components/leads/LeadsFilters";
+import { LeadsWorkspace } from "@/components/leads/LeadsWorkspace";
+import { KanbanBoard } from "@/components/leads/KanbanBoard";
 import { Pagination } from "@/components/leads/Pagination";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
-import type { LeadFilters, LeadPriority, LeadStatus } from "@/types/lead";
-import { LEAD_STATUSES } from "@/types/lead";
+import { parseLeadFilters } from "@/lib/parseLeadFilters";
 
 export const dynamic = "force-dynamic";
 
-const VALID_PRIORITIES: LeadPriority[] = ["BAIXA", "MEDIA", "ALTA"];
 const PAGE_SIZE = 20;
 
 interface LeadsPageProps {
@@ -20,37 +19,30 @@ interface LeadsPageProps {
 
 export default async function LeadsPage({ searchParams }: LeadsPageProps) {
   const params = await searchParams;
+  const urlParams = new URLSearchParams(
+    Object.entries(params).filter((entry): entry is [string, string] => Boolean(entry[1]))
+  );
 
-  const status = params.status && LEAD_STATUSES.includes(params.status as LeadStatus)
-    ? (params.status as LeadStatus)
-    : undefined;
-  const priority = params.priority && VALID_PRIORITIES.includes(params.priority as LeadPriority)
-    ? (params.priority as LeadPriority)
-    : undefined;
-  const page = Number(params.page) || 1;
+  const view: LeadsView =
+    params.view === "cards" || params.view === "kanban" ? (params.view as LeadsView) : "table";
 
-  const filters: LeadFilters = {
-    search: params.search || undefined,
-    status,
-    priority,
-    sortBy: (params.sortBy as LeadFilters["sortBy"]) ?? "score",
-    sortDir: "desc",
-    page,
-    pageSize: PAGE_SIZE,
-  };
+  const filters = parseLeadFilters(urlParams);
+  filters.pageSize = PAGE_SIZE;
 
   const repository = await getLeadsRepository();
-  const { leads, total } = await repository.list(filters);
   const stats = await repository.getStats();
 
-  const hasAnyFilter = Boolean(params.search || params.status || params.priority);
+  const isKanban = view === "kanban";
+  const { leads, total } = isKanban
+    ? { leads: [], total: 0 }
+    : await repository.list(filters);
+
+  const hasAnyFilter = Boolean(
+    params.search || params.status || params.priority || params.hasWebsite || params.hasInstagram || params.hasWhatsapp || params.outdatedWebsite
+  );
 
   function buildHref(targetPage: number) {
-    const next = new URLSearchParams();
-    if (params.search) next.set("search", params.search);
-    if (params.status) next.set("status", params.status);
-    if (params.priority) next.set("priority", params.priority);
-    if (params.sortBy) next.set("sortBy", params.sortBy);
+    const next = new URLSearchParams(urlParams);
     next.set("page", String(targetPage));
     return `/leads?${next.toString()}`;
   }
@@ -85,9 +77,11 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
         />
       ) : (
         <div className="space-y-4">
-          <LeadsFilters />
+          <LeadsFilters view={view} />
 
-          {leads.length === 0 ? (
+          {isKanban ? (
+            <KanbanBoard />
+          ) : leads.length === 0 ? (
             <EmptyState
               icon={<Users className="h-5 w-5" />}
               title="Nenhum lead encontrado"
@@ -99,8 +93,8 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
             />
           ) : (
             <>
-              <LeadsTable leads={leads} />
-              <Pagination page={page} pageSize={PAGE_SIZE} total={total} buildHref={buildHref} />
+              <LeadsWorkspace leads={leads} view={view} />
+              <Pagination page={filters.page ?? 1} pageSize={PAGE_SIZE} total={total} buildHref={buildHref} />
             </>
           )}
         </div>

@@ -4,13 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PriorityBadge, ScoreBadge } from "@/components/leads/StatusBadge";
 import type { Lead } from "@/types/lead";
+import type { SkippedLead } from "@/lib/hooks/useProspectingAgent";
 
 interface AgentResultsProps {
   leads: Lead[];
-  summary: { count: number; requested: number } | null;
+  skipped: SkippedLead[];
+  summary: { count: number; requested: number; skippedByCriteria: number } | null;
 }
 
-export function AgentResults({ leads, summary }: AgentResultsProps) {
+export function AgentResults({ leads, skipped, summary }: AgentResultsProps) {
   if (!summary) return null;
 
   if (leads.length === 0) {
@@ -18,7 +20,11 @@ export function AgentResults({ leads, summary }: AgentResultsProps) {
       <EmptyState
         icon={<SearchX className="h-5 w-5" />}
         title="Não encontramos leads com esses critérios."
-        description="Tente ajustar o nicho, a cidade ou a quantidade solicitada e pesquise novamente."
+        description={
+          summary.skippedByCriteria > 0
+            ? `${summary.skippedByCriteria} negócio(s) foram encontrados, mas nenhum atendeu aos critérios de qualificação selecionados. Tente relaxar os critérios ou aumentar a quantidade.`
+            : "Tente ajustar o nicho, a cidade ou a quantidade solicitada e pesquise novamente."
+        }
       />
     );
   }
@@ -30,7 +36,11 @@ export function AgentResults({ leads, summary }: AgentResultsProps) {
           {leads.length} {leads.length === 1 ? "lead encontrado" : "leads encontrados"}
           {summary.requested > leads.length && (
             <span className="ml-1.5 font-normal text-muted">
-              (de {summary.requested} solicitados — alguns podem ter sido duplicados)
+              (de {summary.requested} solicitados
+              {summary.skippedByCriteria > 0
+                ? ` — ${summary.skippedByCriteria} não atenderam aos critérios`
+                : " — alguns podem ter sido duplicados"}
+              )
             </span>
           )}
         </CardTitle>
@@ -60,6 +70,23 @@ export function AgentResults({ leads, summary }: AgentResultsProps) {
           ))}
         </ul>
       </CardContent>
+      {skipped.length > 0 && (
+        <div className="border-t border-border px-5 py-3.5">
+          <p className="text-xs font-medium text-muted">
+            {skipped.length} negócio(s) ignorado(s) por não atenderem aos critérios:
+          </p>
+          <ul className="mt-1 space-y-0.5">
+            {skipped.slice(0, 5).map((s, idx) => (
+              <li key={idx} className="text-xs text-muted">
+                {s.name} — {s.reason}
+              </li>
+            ))}
+            {skipped.length > 5 && (
+              <li className="text-xs text-muted">e mais {skipped.length - 5}...</li>
+            )}
+          </ul>
+        </div>
+      )}
     </Card>
   );
 }

@@ -1,10 +1,5 @@
--- Prospect AI — schema completo do Supabase/PostgreSQL (V2)
--- Execute este script no SQL Editor de um projeto Supabase NOVO.
---
--- Se você já tem um projeto rodando a V1, NÃO rode este arquivo — rode
--- apenas o delta em database/migrations/002_v2_crm_fields.sql, que adiciona
--- as colunas novas sem apagar nada. O histórico completo de mudanças fica
--- em database/migrations/.
+-- Prospect AI — migration 001 (schema inicial V1)
+-- Execute este script no SQL Editor do seu projeto Supabase.
 
 create extension if not exists "pgcrypto";
 
@@ -54,8 +49,6 @@ create table if not exists public.leads (
   website text,
   instagram text,
   phone text,
-  whatsapp text,
-  email text,
   address text,
   description text,
 
@@ -73,12 +66,8 @@ create table if not exists public.leads (
   outreach_message text,
   ai_generated boolean not null default false,
 
-  -- Fluxo comercial (CRM)
+  -- Fluxo comercial
   status lead_status not null default 'NOVO',
-  status_history jsonb not null default '[]'::jsonb,
-  notes jsonb not null default '[]'::jsonb,
-  next_action text,
-  next_action_date date,
 
   -- Rastreabilidade / anti-alucinação
   source text not null default 'Não verificado',
@@ -94,7 +83,6 @@ create index if not exists leads_priority_idx on public.leads (priority);
 create index if not exists leads_score_idx on public.leads (score desc);
 create index if not exists leads_category_idx on public.leads (category);
 create index if not exists leads_created_at_idx on public.leads (created_at desc);
-create index if not exists leads_next_action_date_idx on public.leads (next_action_date);
 
 -- Índice único parcial para ajudar na deduplicação por site
 create unique index if not exists leads_website_unique_idx
@@ -121,9 +109,8 @@ create trigger leads_set_updated_at
 
 -- Row Level Security: habilitada e SEM policies para anon/authenticated.
 -- Toda a leitura/escrita acontece no servidor (API routes) usando a
--- SUPABASE_SERVICE_ROLE_KEY (ou "secret key", em projetos novos), que
--- ignora RLS por padrão. Isso garante que a tabela fique inacessível
--- diretamente pelo cliente (browser).
+-- SUPABASE_SERVICE_ROLE_KEY, que ignora RLS por padrão. Isso garante que a
+-- tabela fique inacessível diretamente pelo cliente (browser).
 alter table public.leads enable row level security;
 
 comment on table public.leads is 'Leads de prospecção gerados pelo Prospect AI agent.';

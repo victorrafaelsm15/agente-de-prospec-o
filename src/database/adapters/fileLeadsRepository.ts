@@ -7,7 +7,17 @@ import type {
   LeadsRepository,
   NewLead,
 } from "@/database/leadsRepository";
-import type { Lead, LeadFilters, LeadListResult, LeadStatus } from "@/types/lead";
+import type {
+  DashboardStats,
+  Lead,
+  LeadFilters,
+  LeadListResult,
+  LeadStatus,
+  RecentResearchItem,
+  ScoreDistributionItem,
+  StatusDistributionItem,
+} from "@/types/lead";
+import { LEAD_STATUSES } from "@/types/lead";
 
 /**
  * Adapter de desenvolvimento: persiste leads em um arquivo JSON local.
@@ -43,28 +53,60 @@ export class FileLeadsRepository implements LeadsRepository {
     return result;
   }
 
-  async list(filters: LeadFilters): Promise<LeadListResult> {
-    let leads = await this.readAll();
+  private applyFilters(leads: Lead[], filters: LeadFilters): Lead[] {
+    let result = leads;
 
-    if (filters.status) leads = leads.filter((l) => l.status === filters.status);
-    if (filters.priority) leads = leads.filter((l) => l.priority === filters.priority);
+    if (filters.status) result = result.filter((l) => l.status === filters.status);
+    if (filters.priority) result = result.filter((l) => l.priority === filters.priority);
     if (filters.category) {
       const q = filters.category.toLowerCase();
-      leads = leads.filter((l) => l.category.toLowerCase().includes(q));
+      result = result.filter((l) => l.category.toLowerCase().includes(q));
     }
     if (filters.search) {
       const q = filters.search.toLowerCase();
-      leads = leads.filter(
+      result = result.filter(
         (l) =>
           l.name.toLowerCase().includes(q) ||
           l.city.toLowerCase().includes(q) ||
           l.category.toLowerCase().includes(q)
       );
     }
+    if (filters.hasWebsite !== undefined) {
+      result = result.filter((l) => Boolean(l.website) === filters.hasWebsite);
+    }
+    if (filters.hasInstagram !== undefined) {
+      result = result.filter((l) => Boolean(l.instagram) === filters.hasInstagram);
+    }
+    if (filters.hasPhone !== undefined) {
+      result = result.filter((l) => Boolean(l.phone) === filters.hasPhone);
+    }
+    if (filters.hasWhatsapp !== undefined) {
+      result = result.filter((l) => Boolean(l.whatsapp) === filters.hasWhatsapp);
+    }
+    if (filters.outdatedWebsite !== undefined) {
+      result = result.filter((l) => {
+        const isOutdated =
+          Boolean(l.website) &&
+          (l.websiteAnalysis.hasCallToAction === false ||
+            l.websiteAnalysis.hasViewportMeta === false ||
+            l.websiteStatus === "INACESSIVEL");
+        return filters.outdatedWebsite ? isOutdated : !isOutdated;
+      });
+    }
+    if (filters.dateFrom) {
+      result = result.filter((l) => l.createdAt >= filters.dateFrom!);
+    }
+    if (filters.dateTo) {
+      result = result.filter((l) => l.createdAt <= filters.dateTo!);
+    }
 
+    return result;
+  }
+
+  private sort(leads: Lead[], filters: LeadFilters): Lead[] {
     const sortBy = filters.sortBy ?? "score";
     const sortDir = filters.sortDir ?? "desc";
-    leads.sort((a, b) => {
+    const sorted = [...leads].sort((a, b) => {
       let cmp = 0;
       if (sortBy === "score") cmp = a.score - b.score;
       else if (sortBy === "createdAt")
@@ -72,6 +114,11 @@ export class FileLeadsRepository implements LeadsRepository {
       else cmp = a.name.localeCompare(b.name);
       return sortDir === "asc" ? cmp : -cmp;
     });
+    return sorted;
+  }
+
+  async list(filters: LeadFilters): Promise<LeadListResult> {
+    const leads = this.sort(this.applyFilters(await this.readAll(), filters), filters);
 
     const page = filters.page ?? 1;
     const pageSize = filters.pageSize ?? 20;
@@ -80,6 +127,10 @@ export class FileLeadsRepository implements LeadsRepository {
     const paginated = leads.slice(start, start + pageSize);
 
     return { leads: paginated, total, page, pageSize };
+  }
+
+  async listAll(filters: LeadFilters): Promise<Lead[]> {
+    return this.sort(this.applyFilters(await this.readAll(), filters), filters);
   }
 
   async getById(id: string): Promise<Lead | null> {
@@ -91,7 +142,14 @@ export class FileLeadsRepository implements LeadsRepository {
     return this.enqueue(async () => {
       const leads = await this.readAll();
       const now = new Date().toISOString();
-      const newLead: Lead = { ...lead, id: randomUUID(), createdAt: now, updatedAt: now };
+      const newLead: Lead = {
+        ...lead,
+        statusHistory: lead.statusHistory ?? [{ status: lead.status, changedAt: now }],
+        notes: lead.notes ?? [],
+        id: randomUUID(),
+        createdAt: now,
+        updatedAt: now,
+      };
       leads.unshift(newLead);
       await this.writeAll(leads);
       return newLead;
@@ -103,9 +161,36 @@ export class FileLeadsRepository implements LeadsRepository {
       const leads = await this.readAll();
       const idx = leads.findIndex((l) => l.id === id);
       if (idx === -1) return null;
-      leads[idx] = { ...leads[idx], status, updatedAt: new Date().toISOString() };
+      const now = new Date().toISOString();
+      leads[idx] = {
+        ...leads[idx],
+        status,
+        statusHistory: [...leads[idx].statusHistory, { status, changedAt: now }],
+        updatedAt: now,
+      };
       await this.writeAll(leads);
       return leads[idx];
+    });
+  }
+
+  async bulkUpdateStatus(ids: string[], status: LeadStatus): Promise<number> {
+    return this.enqueue(async () => {
+      const leads = await this.readAll();
+      const now = new Date().toISOString();
+      let updated = 0;
+      for (const id of ids) {
+        const idx = leads.findIndex((l) => l.id === id);
+        if (idx === -1) continue;
+        leads[idx] = {
+          ...leads[idx],
+          status,
+          statusHistory: [...leads[idx].statusHistory, { status, changedAt: now }],
+          updatedAt: now,
+        };
+        updated += 1;
+      }
+      await this.writeAll(leads);
+      return updated;
     });
   }
 
@@ -121,6 +206,63 @@ export class FileLeadsRepository implements LeadsRepository {
       };
       await this.writeAll(leads);
       return leads[idx];
+    });
+  }
+
+  async updateNextAction(
+    id: string,
+    nextAction: string | null,
+    nextActionDate: string | null
+  ): Promise<Lead | null> {
+    return this.enqueue(async () => {
+      const leads = await this.readAll();
+      const idx = leads.findIndex((l) => l.id === id);
+      if (idx === -1) return null;
+      leads[idx] = {
+        ...leads[idx],
+        nextAction,
+        nextActionDate,
+        updatedAt: new Date().toISOString(),
+      };
+      await this.writeAll(leads);
+      return leads[idx];
+    });
+  }
+
+  async addNote(id: string, text: string): Promise<Lead | null> {
+    return this.enqueue(async () => {
+      const leads = await this.readAll();
+      const idx = leads.findIndex((l) => l.id === id);
+      if (idx === -1) return null;
+      const now = new Date().toISOString();
+      leads[idx] = {
+        ...leads[idx],
+        notes: [...leads[idx].notes, { id: randomUUID(), text, createdAt: now }],
+        updatedAt: now,
+      };
+      await this.writeAll(leads);
+      return leads[idx];
+    });
+  }
+
+  async delete(id: string): Promise<boolean> {
+    return this.enqueue(async () => {
+      const leads = await this.readAll();
+      const filtered = leads.filter((l) => l.id !== id);
+      const removed = filtered.length !== leads.length;
+      if (removed) await this.writeAll(filtered);
+      return removed;
+    });
+  }
+
+  async bulkDelete(ids: string[]): Promise<number> {
+    return this.enqueue(async () => {
+      const leads = await this.readAll();
+      const idSet = new Set(ids);
+      const filtered = leads.filter((l) => !idSet.has(l.id));
+      const removed = leads.length - filtered.length;
+      if (removed > 0) await this.writeAll(filtered);
+      return removed;
     });
   }
 
@@ -149,17 +291,62 @@ export class FileLeadsRepository implements LeadsRepository {
     return null;
   }
 
-  async getStats() {
+  async getStats(): Promise<DashboardStats> {
     const leads = await this.readAll();
+    const countStatus = (s: LeadStatus) => leads.filter((l) => l.status === s).length;
     return {
       total: leads.length,
-      novos: leads.filter((l) => l.status === "NOVO").length,
+      novos: countStatus("NOVO"),
+      interessantes: countStatus("INTERESSANTE"),
+      contatados: countStatus("CONTATADO"),
+      respondeu: countStatus("RESPONDEU"),
+      reuniao: countStatus("REUNIAO"),
+      proposta: countStatus("PROPOSTA"),
+      clientes: countStatus("CLIENTE"),
       altaPrioridade: leads.filter((l) => l.priority === "ALTA").length,
-      contatados: leads.filter((l) =>
-        ["CONTATADO", "RESPONDEU", "REUNIAO", "PROPOSTA"].includes(l.status)
-      ).length,
-      clientes: leads.filter((l) => l.status === "CLIENTE").length,
     };
+  }
+
+  async getStatusDistribution(): Promise<StatusDistributionItem[]> {
+    const leads = await this.readAll();
+    return LEAD_STATUSES.map((status) => ({
+      status,
+      count: leads.filter((l) => l.status === status).length,
+    }));
+  }
+
+  async getScoreDistribution(): Promise<ScoreDistributionItem[]> {
+    const leads = await this.readAll();
+    return [
+      { range: "ALTA" as const, count: leads.filter((l) => l.score >= 60).length },
+      {
+        range: "MEDIA" as const,
+        count: leads.filter((l) => l.score >= 30 && l.score < 60).length,
+      },
+      { range: "BAIXA" as const, count: leads.filter((l) => l.score < 30).length },
+    ];
+  }
+
+  async getRecentResearch(limit: number): Promise<RecentResearchItem[]> {
+    const leads = await this.readAll();
+    const map = new Map<string, RecentResearchItem>();
+    for (const lead of leads) {
+      if (!lead.researchQuery) continue;
+      const existing = map.get(lead.researchQuery);
+      if (existing) {
+        existing.count += 1;
+        if (lead.createdAt > existing.lastRunAt) existing.lastRunAt = lead.createdAt;
+      } else {
+        map.set(lead.researchQuery, {
+          query: lead.researchQuery,
+          count: 1,
+          lastRunAt: lead.createdAt,
+        });
+      }
+    }
+    return Array.from(map.values())
+      .sort((a, b) => new Date(b.lastRunAt).getTime() - new Date(a.lastRunAt).getTime())
+      .slice(0, limit);
   }
 
   async getRecent(limit: number): Promise<Lead[]> {
@@ -167,5 +354,10 @@ export class FileLeadsRepository implements LeadsRepository {
     return [...leads]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, limit);
+  }
+
+  async getTopOpportunities(limit: number): Promise<Lead[]> {
+    const leads = await this.readAll();
+    return [...leads].sort((a, b) => b.score - a.score).slice(0, limit);
   }
 }

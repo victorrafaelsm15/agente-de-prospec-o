@@ -1,12 +1,19 @@
 # Prospect AI
 
-Agente de prospecção de clientes com IA, feito para quem trabalha com criação
-e redesign de sites profissionais. Você descreve o tipo de cliente que
-procura (ex: *"20 dentistas em Teresina, Piauí"*), o agente pesquisa negócios
-reais, analisa a presença digital de cada um, calcula um score de
-oportunidade e sugere uma mensagem de abordagem personalizada — **sem enviar
-nada automaticamente**. Você revisa cada lead e decide se quer entrar em
-contato.
+Plataforma de prospecção, análise e organização comercial com IA, feita para
+quem trabalha com criação e redesign de sites profissionais. Você descreve o
+tipo de cliente que procura (ex: *"20 dentistas em Teresina, Piauí, com
+Instagram ativo e site desatualizado"*), o agente pesquisa negócios reais,
+analisa a presença digital de cada um, calcula um score de oportunidade e
+sugere uma mensagem de abordagem personalizada — **sem enviar nada
+automaticamente**. Os leads viram um CRM completo: tabela, cards, Kanban,
+notas, próxima ação e histórico de status.
+
+**V2:** CRM (tabela/cards/Kanban com arrastar-e-soltar), contatos clicáveis
+(site/Instagram/WhatsApp/telefone/e-mail, sempre extraídos de uma fonte real),
+critérios de qualificação no Agente, notas internas, próxima ação, histórico
+de status, exportação CSV, dashboard com distribuições, e uma revisão geral
+de UI (hover/active/loading em todos os elementos interativos).
 
 ## Sumário
 
@@ -26,17 +33,26 @@ contato.
 ## Como funciona
 
 1. Na tela **Agente** (`/agent`), você informa nicho, cidade, estado,
-   quantidade de leads e instruções adicionais opcionais.
+   quantidade de leads, critérios de qualificação opcionais (sem site, site
+   desatualizado, Instagram ativo, negócio estabelecido) e instruções
+   adicionais.
 2. O `ProspectingAgent` (`src/agents/ProspectingAgent.ts`) executa uma
-   sequência de ferramentas, emitindo o progresso em tempo real:
-   pesquisar negócios → remover duplicados → inspecionar site → analisar
-   presença digital → calcular score → gerar análise → gerar mensagem →
-   salvar lead.
-3. Os leads salvos aparecem no **Dashboard** (`/`) e na lista de **Leads**
-   (`/leads`), com filtros, busca, ordenação por score e paginação.
-4. Em `/leads/[id]` você vê a análise completa, as evidências coletadas, o
-   score de oportunidade, a mensagem sugerida (editável) e pode copiá-la ou
-   mudar o status do lead manualmente.
+   sequência de ferramentas, emitindo o progresso em tempo real: pesquisar
+   negócios → remover duplicados → inspecionar site → analisar presença
+   digital → identificar oportunidades → qualificar (se houver critérios) →
+   gerar mensagens personalizadas → salvar lead. Leads que não atendem aos
+   critérios selecionados são descartados automaticamente, com o motivo
+   mostrado na tela.
+3. Os leads salvos aparecem no **Dashboard** (`/`, com distribuições por
+   status/score e leads de maior oportunidade) e no **CRM de Leads**
+   (`/leads`), com três visualizações — tabela, cards e Kanban (arraste um
+   card para mudar o status) —, filtros avançados, busca, seleção múltipla
+   com ações em lote e exportação CSV.
+4. Em `/leads/[id]` você vê a análise completa, a presença digital detalhada
+   (SEO básico, mobile, conversão, conteúdo), o score com as razões de cada
+   ponto, contatos clicáveis (site/Instagram/WhatsApp/telefone/e-mail), a
+   mensagem sugerida (editável e copiável), notas internas, próxima ação e o
+   histórico de mudanças de status.
 
 O sistema **nunca inventa dados**: quando uma informação não pôde ser
 verificada, os campos mostram "Não encontrado" ou "Não foi possível
@@ -97,15 +113,21 @@ sempre `.env.local` (ignorado pelo git) para as chaves reais.
 ## Configuração do banco de dados (Supabase)
 
 1. Crie um projeto gratuito em [supabase.com](https://supabase.com).
-2. No SQL Editor do projeto, rode o conteúdo de
-   [`database/schema.sql`](database/schema.sql). Isso cria a tabela `leads`,
-   os índices e habilita Row Level Security.
-3. Em **Project Settings → API**, copie:
+2. **Projeto novo:** no SQL Editor, rode o conteúdo de
+   [`database/schema.sql`](database/schema.sql) (schema completo, já com os
+   campos da V2). Isso cria a tabela `leads`, os índices e habilita Row
+   Level Security.
+   **Projeto que já rodava a V1:** rode apenas
+   [`database/migrations/002_v2_crm_fields.sql`](database/migrations/002_v2_crm_fields.sql) —
+   é aditivo, não apaga nenhum lead existente. O histórico completo de
+   migrations fica em [`database/migrations/`](database/migrations/).
+3. Em **Project Settings → API Keys**, copie:
    - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
-   - `service_role` key → `SUPABASE_SERVICE_ROLE_KEY` (secreta — nunca
-     exponha no frontend; é usada apenas nas API routes do servidor)
-   - `anon` key → `NEXT_PUBLIC_SUPABASE_ANON_KEY` (reservada para uso
-     futuro)
+   - `service_role` (ou `secret key`, em projetos novos) → `SUPABASE_SERVICE_ROLE_KEY`
+     (secreta — nunca exponha no frontend; usada apenas nas API routes do
+     servidor, é quem ignora o RLS)
+   - `anon` (ou `publishable key`, em projetos novos) → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+     (reservada para uso futuro no client)
 
 ### Modo de desenvolvimento sem Supabase
 
@@ -167,29 +189,51 @@ Não configure `ENABLE_DEMO_MODE=true` em produção.
 
 ## O que está implementado
 
-- Dashboard com métricas reais (total, novos, alta prioridade, contatados,
-  clientes) e atividade recente, com estado vazio elegante quando não há
-  leads.
+**Da V1:**
+- Dashboard com métricas reais e atividade recente, com estado vazio elegante.
 - Agente de prospecção com progresso em tempo real (streaming), proteção
   contra execuções simultâneas e tratamento de erros.
 - Ferramentas do agente desacopladas (`src/tools/`): `findBusinesses`,
   `inspectWebsite` (verificação HTTP real, sem depender de API paga),
   `analyzeWebsite`, `generateLeadAnalysis`, `generateOutreachMessage`,
   `saveLead`, e `searchWeb` (reservada para o futuro).
-- Score de oportunidade (0–100) com critérios objetivos e documentados,
-  convertido em prioridade Baixa/Média/Alta.
-- Deduplicação de leads por site ou por nome + cidade, tanto dentro de uma
-  mesma pesquisa quanto contra o banco existente.
-- Página de Leads com busca, filtros (status, prioridade), ordenação e
-  paginação.
-- Página de detalhe do lead com informações, análise, oportunidades, score,
-  evidências (com fonte) e mensagem sugerida editável e copiável.
-- Alteração manual de status do lead (nunca automática).
-- Design responsivo (desktop, tablet e mobile) com estados de carregamento,
-  vazio e erro tratados em toda a aplicação.
+- Score de oportunidade (0–100) convertido em prioridade Baixa/Média/Alta.
+- Deduplicação de leads por site ou por nome + cidade.
 - Segurança: chaves sensíveis nunca chegam ao frontend; a tabela do Supabase
   fica protegida por Row Level Security e só é acessada pelo servidor via
   service role.
+
+**Novo na V2:**
+- **CRM completo em `/leads`:** tabela, cards e Kanban (arrastar-e-soltar
+  entre colunas de status, com atualização otimista e rollback em caso de
+  erro), seleção múltipla com ações em lote (mudar status, excluir),
+  exclusão individual, exportação CSV.
+- **Filtros avançados:** possui/não possui site, Instagram, WhatsApp, site
+  desatualizado, além de busca, status, prioridade e ordenação.
+- **Contatos clicáveis e reais:** site, Instagram (`@handle ↗`), WhatsApp
+  (`wa.me`), telefone (`tel:`) e e-mail (`mailto:`) — o WhatsApp, e-mail e
+  Instagram são extraídos de links reais encontrados no HTML do site do
+  negócio (nunca inventados); quando não encontrados, mostram "não
+  encontrado" em vez de um link fabricado.
+- **Critérios de qualificação no Agente:** sem site, site desatualizado,
+  Instagram ativo, negócio estabelecido — leads que não atendem, após a
+  análise real, são descartados automaticamente e listados com o motivo.
+- **Análise de presença digital mais profunda:** sinais de SEO básico
+  (title, meta description, quantidade de H1), mobile (viewport), conversão
+  (CTA, links de telefone/WhatsApp) e conteúdo (volume de texto) — sempre
+  extraídos do HTML, nunca uma avaliação de design "inventada" (isso exigiria
+  renderização/captura de tela, fora do escopo desta versão).
+- **Score com razões visíveis:** cada ponto do score vem acompanhado do
+  motivo (ex.: "Site desatualizado: +20"), exibido na página do lead.
+- **CRM relacional por lead:** notas internas, campo de "próxima ação" com
+  data, e histórico completo de mudanças de status com timestamp.
+- **Dashboard V2:** distribuição por status, distribuição por score, leads
+  de maior oportunidade e últimas pesquisas realizadas.
+- **Revisão geral de UI:** hover/active/focus/loading/disabled consistentes
+  em todos os botões, cards e links clicáveis; microinterações (botão copiar
+  vira ✓, barra de ações em lote, toasts de confirmação).
+- Design responsivo (desktop, tablet e mobile) com estados de carregamento,
+  vazio e erro tratados em toda a aplicação.
 
 ## O que depende de configuração externa
 
@@ -198,7 +242,7 @@ Não configure `ENABLE_DEMO_MODE=true` em produção.
 | Persistência real dos leads | Supabase | Usa arquivo local (`.data/leads.json`), só para dev |
 | Busca de negócios reais | Google Places API | Mostra "Pesquisa externa não configurada" (ou dados de demonstração com `ENABLE_DEMO_MODE=true`) |
 | Análise e mensagem geradas por IA | Anthropic Claude | Usa geração heurística baseada em regras, claramente identificada na interface |
-| Pesquisa web genérica (`searchWeb`) | Nenhum provedor configurado nesta V1 | Reservada para uso futuro (ex.: enriquecer leads com notícias/avaliações) |
+| Pesquisa web genérica (`searchWeb`) | Nenhum provedor configurado nesta versão | Reservada para uso futuro (ex.: enriquecer leads com notícias/avaliações) |
 
 ## Arquitetura do código
 
@@ -211,7 +255,8 @@ src/
   lib/                    # env, scoring, utils, cliente Supabase, cliente Anthropic, hooks
   components/             # Componentes de UI, layout, dashboard, agente e leads
   types/                  # Tipos compartilhados (Lead, filtros, etc.)
-database/schema.sql        # Schema do Supabase/PostgreSQL
+database/schema.sql        # Schema completo do Supabase/PostgreSQL (V1+V2)
+database/migrations/       # Histórico de migrations (aplicar em projetos já existentes)
 ```
 
 A arquitetura foi pensada para crescer sem reescrever o agente: novas
@@ -220,9 +265,11 @@ LinkedIn/Instagram, geração de proposta) entram em `src/tools/` com uma
 interface própria e são plugadas no `ProspectingAgent` sem afetar as
 existentes.
 
-### Fora do escopo desta V1 (propositalmente)
+### Fora do escopo desta V2 (propositalmente)
 
-Envio automático de mensagens, CRM completo (notas, tags, favoritos,
-exportação CSV), histórico de pesquisas, múltiplos agentes especializados e
-geração automática de proposta/briefing ficam para versões futuras (V2–V5),
-conforme definido no escopo do produto.
+Envio automático de mensagens (WhatsApp/e-mail), follow-ups automáticos,
+múltiplos agentes especializados, geração automática de proposta/briefing,
+cobrança e sistema de usuários complexo ficam para versões futuras (V3+),
+conforme definido no escopo do produto. A arquitetura (ferramentas
+desacopladas, histórico de status, evidências rastreáveis) já foi pensada
+para suportar essas evoluções sem reescrever o que existe.

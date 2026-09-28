@@ -87,6 +87,32 @@ export function calculateOpportunityScore(input: ScoringInput): ScoreResult {
     });
   }
 
+  if (
+    hasWebsite &&
+    websiteAnalysis.status === "ACESSIVEL" &&
+    !websiteAnalysis.hasWhatsappLink &&
+    !websiteAnalysis.hasPhoneLink &&
+    !websiteAnalysis.hasEmailLink
+  ) {
+    opportunities.push({
+      label: "Site não oferece nenhum canal de contato direto (telefone, WhatsApp ou e-mail)",
+      points: 10,
+      category: "necessidade_de_site",
+    });
+  }
+
+  if (
+    hasWebsite &&
+    websiteAnalysis.status === "ACESSIVEL" &&
+    (websiteAnalysis.h1Count === 0 || !websiteAnalysis.metaDescription)
+  ) {
+    opportunities.push({
+      label: "Site com sinais básicos de SEO fracos (sem heading principal e/ou meta description)",
+      points: 10,
+      category: "necessidade_de_site",
+    });
+  }
+
   // Presença comercial
   if (hasInstagram) {
     opportunities.push({

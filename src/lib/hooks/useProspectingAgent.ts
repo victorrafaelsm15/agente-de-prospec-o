@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import type { AgentEvent } from "@/agents/types";
+import type { AgentEvent, QualificationCriteria } from "@/agents/types";
 import type { Lead } from "@/types/lead";
 
 export interface AgentStepLog {
@@ -11,12 +11,18 @@ export interface AgentStepLog {
   message: string;
 }
 
+export interface SkippedLead {
+  name: string;
+  reason: string;
+}
+
 export interface RunCriteria {
   niche: string;
   city: string;
   state: string;
   quantity: number;
   additionalInstructions?: string;
+  qualification?: QualificationCriteria;
 }
 
 type Phase = "idle" | "running" | "done" | "error";
@@ -25,8 +31,13 @@ export function useProspectingAgent() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [steps, setSteps] = useState<AgentStepLog[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [skipped, setSkipped] = useState<SkippedLead[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [summary, setSummary] = useState<{ count: number; requested: number } | null>(null);
+  const [summary, setSummary] = useState<{
+    count: number;
+    requested: number;
+    skippedByCriteria: number;
+  } | null>(null);
   const stepIdRef = useRef(0);
   const runningRef = useRef(false);
 
@@ -37,6 +48,7 @@ export function useProspectingAgent() {
     setPhase("running");
     setSteps([]);
     setLeads([]);
+    setSkipped([]);
     setErrorMessage(null);
     setSummary(null);
 
@@ -90,8 +102,14 @@ export function useProspectingAgent() {
         setSteps((prev) => [...prev, { id, step: event.step, status: event.status, message: event.message }]);
       } else if (event.type === "lead") {
         setLeads((prev) => [...prev, event.lead]);
+      } else if (event.type === "skipped") {
+        setSkipped((prev) => [...prev, { name: event.name, reason: event.reason }]);
       } else if (event.type === "done") {
-        setSummary({ count: event.count, requested: event.requested });
+        setSummary({
+          count: event.count,
+          requested: event.requested,
+          skippedByCriteria: event.skippedByCriteria,
+        });
       } else if (event.type === "error") {
         setErrorMessage(event.message);
       }
@@ -102,9 +120,10 @@ export function useProspectingAgent() {
     setPhase("idle");
     setSteps([]);
     setLeads([]);
+    setSkipped([]);
     setErrorMessage(null);
     setSummary(null);
   }, []);
 
-  return { phase, steps, leads, errorMessage, summary, run, reset };
+  return { phase, steps, leads, skipped, errorMessage, summary, run, reset };
 }

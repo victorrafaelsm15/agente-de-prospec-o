@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Search } from "lucide-react";
+import { Search, Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { NICHE_SUGGESTIONS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
+import type { QualificationCriteria } from "@/agents/types";
 import type { RunCriteria } from "@/lib/hooks/useProspectingAgent";
 
 interface AgentFormProps {
@@ -12,13 +14,33 @@ interface AgentFormProps {
   onSubmit: (criteria: RunCriteria) => void;
 }
 
+const CRITERIA_OPTIONS: {
+  key: keyof QualificationCriteria;
+  label: string;
+  excludesKey?: keyof QualificationCriteria;
+}[] = [
+  { key: "requireNoWebsite", label: "Sem site", excludesKey: "requireOutdatedWebsite" },
+  { key: "requireOutdatedWebsite", label: "Site desatualizado", excludesKey: "requireNoWebsite" },
+  { key: "requireInstagram", label: "Instagram ativo" },
+  { key: "requireEstablishedBusiness", label: "Negócio estabelecido" },
+];
+
 export function AgentForm({ disabled, onSubmit }: AgentFormProps) {
   const [niche, setNiche] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [quantity, setQuantity] = useState(20);
   const [instructions, setInstructions] = useState("");
+  const [qualification, setQualification] = useState<QualificationCriteria>({});
   const [formError, setFormError] = useState<string | null>(null);
+
+  function toggleCriteria(key: keyof QualificationCriteria, excludesKey?: keyof QualificationCriteria) {
+    setQualification((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      if (next[key] && excludesKey) next[excludesKey] = false;
+      return next;
+    });
+  }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -34,12 +56,17 @@ export function AgentForm({ disabled, onSubmit }: AgentFormProps) {
     }
 
     setFormError(null);
+    const activeQualification = Object.fromEntries(
+      Object.entries(qualification).filter(([, v]) => v)
+    ) as QualificationCriteria;
+
     onSubmit({
       niche: niche.trim(),
       city: city.trim(),
       state: state.trim(),
       quantity,
       additionalInstructions: instructions.trim() || undefined,
+      qualification: Object.keys(activeQualification).length > 0 ? activeQualification : undefined,
     });
   }
 
@@ -100,6 +127,38 @@ export function AgentForm({ disabled, onSubmit }: AgentFormProps) {
       </div>
 
       <div>
+        <Label>Critérios de qualificação (opcional)</Label>
+        <div className="flex flex-wrap gap-2">
+          {CRITERIA_OPTIONS.map((opt) => {
+            const active = Boolean(qualification[opt.key]);
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                disabled={disabled}
+                onClick={() => toggleCriteria(opt.key, opt.excludesKey)}
+                aria-pressed={active}
+                className={cn(
+                  "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-all",
+                  "disabled:cursor-not-allowed disabled:opacity-50",
+                  active
+                    ? "border-brand bg-brand-soft text-brand"
+                    : "border-border-strong bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                )}
+              >
+                {active && <Check className="h-3.5 w-3.5" />}
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-1.5 text-xs text-muted">
+          Leads que não atenderem aos critérios selecionados (após análise real) serão descartados
+          automaticamente da pesquisa.
+        </p>
+      </div>
+
+      <div>
         <Label htmlFor="instructions">Instruções adicionais (opcional)</Label>
         <Textarea
           id="instructions"
@@ -113,7 +172,7 @@ export function AgentForm({ disabled, onSubmit }: AgentFormProps) {
 
       {formError && <p className="text-sm text-danger">{formError}</p>}
 
-      <Button type="submit" disabled={disabled} size="lg" className="w-full sm:w-auto">
+      <Button type="submit" disabled={disabled} loading={disabled} size="lg" className="w-full sm:w-auto">
         <Search className="h-4 w-4" />
         {disabled ? "Pesquisando..." : "Encontrar leads"}
       </Button>

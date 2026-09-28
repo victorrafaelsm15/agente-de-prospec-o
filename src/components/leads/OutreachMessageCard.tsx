@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Save, Sparkles } from "lucide-react";
+import { Save, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { CopyButton } from "@/components/ui/CopyButton";
 import { useToast } from "@/components/ui/Toast";
 
 interface OutreachMessageCardProps {
@@ -20,15 +21,6 @@ export function OutreachMessageCard({ leadId, initialMessage, aiGenerated }: Out
   const { showToast } = useToast();
 
   const isDirty = message !== savedMessage;
-
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(message);
-      showToast("Mensagem copiada para a área de transferência.");
-    } catch {
-      showToast("Não foi possível copiar a mensagem.", "error");
-    }
-  }
 
   async function handleSave() {
     setSaving(true);
@@ -70,11 +62,13 @@ export function OutreachMessageCard({ leadId, initialMessage, aiGenerated }: Out
               placeholder="Edite a mensagem antes de utilizá-la..."
             />
             <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" onClick={handleCopy}>
-                <Copy className="h-3.5 w-3.5" />
-                Copiar mensagem
-              </Button>
-              <Button size="sm" variant="secondary" onClick={handleSave} disabled={!isDirty || saving}>
+              <CopyButton
+                value={message}
+                label="Copiar mensagem"
+                successMessage="Mensagem copiada para a área de transferência."
+                variant="primary"
+              />
+              <Button size="sm" variant="secondary" onClick={handleSave} disabled={!isDirty || saving} loading={saving}>
                 <Save className="h-3.5 w-3.5" />
                 {saving ? "Salvando..." : "Salvar edição"}
               </Button>

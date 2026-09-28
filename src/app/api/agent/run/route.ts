@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { ProspectingAgent } from "@/agents/ProspectingAgent";
-import type { AgentEvent, ProspectingCriteria } from "@/agents/types";
+import type { AgentEvent, ProspectingCriteria, QualificationCriteria } from "@/agents/types";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -11,6 +11,7 @@ interface RunRequestBody {
   state?: string;
   quantity?: number;
   additionalInstructions?: string;
+  qualification?: QualificationCriteria;
 }
 
 function validateCriteria(body: RunRequestBody): ProspectingCriteria | { error: string } {
@@ -35,6 +36,7 @@ function validateCriteria(body: RunRequestBody): ProspectingCriteria | { error: 
     state,
     quantity: Math.floor(quantity),
     additionalInstructions: body.additionalInstructions?.trim() || undefined,
+    qualification: body.qualification,
   };
 }
 

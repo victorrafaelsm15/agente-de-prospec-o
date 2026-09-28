@@ -6,12 +6,14 @@ export interface ProspectingCriteria {
   state: string;
   quantity: number;
   additionalInstructions?: string;
+  qualification?: QualificationCriteria;
 }
 
 export type AgentEvent =
   | { type: "step"; step: string; status: "running" | "done" | "error"; message: string }
   | { type: "lead"; lead: Lead }
-  | { type: "done"; count: number; requested: number }
+  | { type: "skipped"; name: string; reason: string }
+  | { type: "done"; count: number; requested: number; skippedByCriteria: number }
   | { type: "error"; message: string };
 
 export interface BusinessCandidate {
@@ -21,8 +23,18 @@ export interface BusinessCandidate {
   state: string;
   address: string | null;
   phone: string | null;
+  whatsapp: string | null;
+  email: string | null;
   website: string | null;
   instagram: string | null;
   description: string | null;
   source: string;
+}
+
+/** Critérios de qualificação opcionais extraídos do formulário do Agente. */
+export interface QualificationCriteria {
+  requireInstagram?: boolean;
+  requireNoWebsite?: boolean;
+  requireOutdatedWebsite?: boolean;
+  requireEstablishedBusiness?: boolean;
 }

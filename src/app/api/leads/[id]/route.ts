@@ -27,6 +27,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 interface PatchBody {
   status?: string;
   outreachMessage?: string;
+  note?: string;
+  nextAction?: string | null;
+  nextActionDate?: string | null;
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
@@ -60,10 +63,44 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ lead: updated });
     }
 
+    if (body.note !== undefined) {
+      const text = body.note.trim();
+      if (!text) return NextResponse.json({ error: "A nota não pode estar vazia." }, { status: 400 });
+      const updated = await repository.addNote(id, text);
+      if (!updated) return NextResponse.json({ error: "Lead não encontrado." }, { status: 404 });
+      return NextResponse.json({ lead: updated });
+    }
+
+    if (body.nextAction !== undefined || body.nextActionDate !== undefined) {
+      const updated = await repository.updateNextAction(
+        id,
+        body.nextAction ?? null,
+        body.nextActionDate ?? null
+      );
+      if (!updated) return NextResponse.json({ error: "Lead não encontrado." }, { status: 404 });
+      return NextResponse.json({ lead: updated });
+    }
+
     return NextResponse.json({ error: "Nenhuma alteração informada." }, { status: 400 });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Erro ao atualizar lead." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+  const { id } = await params;
+
+  try {
+    const repository = await getLeadsRepository();
+    const removed = await repository.delete(id);
+    if (!removed) return NextResponse.json({ error: "Lead não encontrado." }, { status: 404 });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Erro ao excluir lead." },
       { status: 500 }
     );
   }

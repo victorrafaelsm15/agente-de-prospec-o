@@ -8,7 +8,7 @@ import { useProspectingAgent } from "@/lib/hooks/useProspectingAgent";
 import { AlertTriangle } from "lucide-react";
 
 export default function AgentPage() {
-  const { phase, steps, leads, errorMessage, summary, run } = useProspectingAgent();
+  const { phase, steps, leads, skipped, errorMessage, summary, run } = useProspectingAgent();
   const isRunning = phase === "running";
 
   return (
@@ -42,7 +42,7 @@ export default function AgentPage() {
 
       <div className="space-y-6">
         <AgentProgress steps={steps} />
-        <AgentResults leads={leads} summary={summary} />
+        <AgentResults leads={leads} skipped={skipped} summary={summary} />
       </div>
     </div>
   );

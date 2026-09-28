@@ -14,6 +14,8 @@ export type LeadRow = {
   website: string | null;
   instagram: string | null;
   phone: string | null;
+  whatsapp: string | null;
+  email: string | null;
   address: string | null;
   description: string | null;
   website_status: Lead["websiteStatus"];
@@ -25,6 +27,10 @@ export type LeadRow = {
   outreach_message: string | null;
   ai_generated: boolean;
   status: Lead["status"];
+  status_history: Lead["statusHistory"];
+  notes: Lead["notes"];
+  next_action: string | null;
+  next_action_date: string | null;
   source: string;
   evidence: Lead["evidence"];
   research_query: string | null;

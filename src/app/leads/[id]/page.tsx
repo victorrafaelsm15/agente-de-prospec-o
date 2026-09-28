@@ -1,20 +1,23 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  ArrowLeft,
-  AtSign,
-  Building2,
-  Globe,
-  MapPin,
-  Phone,
-  Sparkles,
-  FileText,
-} from "lucide-react";
+import { ArrowLeft, Building2, MapPin, Sparkles, FileText, History, ListTodo } from "lucide-react";
 import { getLeadsRepository } from "@/database";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { PriorityBadge, StatusBadge } from "@/components/leads/StatusBadge";
 import { LeadStatusControl } from "@/components/leads/LeadStatusControl";
+import { DeleteLeadButton } from "@/components/leads/DeleteLeadButton";
 import { OutreachMessageCard } from "@/components/leads/OutreachMessageCard";
+import { WebsiteAnalysisPanel } from "@/components/leads/WebsiteAnalysisPanel";
+import { StatusHistoryTimeline } from "@/components/leads/StatusHistoryTimeline";
+import { NotesSection } from "@/components/leads/NotesSection";
+import { NextActionCard } from "@/components/leads/NextActionCard";
+import {
+  SiteTextLink,
+  InstagramTextLink,
+  WhatsappTextLink,
+  PhoneTextLink,
+  EmailTextLink,
+} from "@/components/leads/ContactLinks";
 import { formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -29,26 +32,6 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   const lead = await repository.getById(id);
 
   if (!lead) notFound();
-
-  const infoRows = [
-    { icon: Building2, label: "Categoria", value: lead.category },
-    { icon: MapPin, label: "Endereço", value: lead.address ?? "Não encontrado" },
-    { icon: Phone, label: "Telefone", value: lead.phone ?? "Não encontrado" },
-    {
-      icon: Globe,
-      label: "Site",
-      value: lead.website ?? "Não encontrado",
-      href: lead.website ?? undefined,
-    },
-    {
-      icon: AtSign,
-      label: "Instagram",
-      value: lead.instagram ?? "Não encontrado",
-      href: lead.instagram
-        ? `https://instagram.com/${lead.instagram.replace(/^@/, "")}`
-        : undefined,
-    },
-  ];
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
@@ -67,35 +50,38 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
             {lead.city}/{lead.state} · Pesquisado em {formatDateTime(lead.createdAt)}
           </p>
         </div>
-        <LeadStatusControl leadId={lead.id} status={lead.status} />
+        <div className="flex items-center gap-2">
+          <LeadStatusControl leadId={lead.id} status={lead.status} />
+          <DeleteLeadButton leadId={lead.id} leadName={lead.name} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Informações</CardTitle>
+              <CardTitle>Informações da empresa</CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {infoRows.map((row) => (
-                  <div key={row.label} className="flex items-start gap-2.5">
-                    <row.icon className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                    <div className="min-w-0">
-                      <dt className="text-xs text-muted">{row.label}</dt>
-                      {row.href ? (
-                        <dd className="truncate text-sm font-medium text-brand">
-                          <a href={row.href} target="_blank" rel="noopener noreferrer">
-                            {row.value}
-                          </a>
-                        </dd>
-                      ) : (
-                        <dd className="truncate text-sm font-medium text-foreground">{row.value}</dd>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </dl>
+              <div className="flex flex-wrap items-start gap-x-6 gap-y-3 text-sm">
+                <div className="flex items-start gap-2">
+                  <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+                  <span className="text-foreground">{lead.category}</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+                  <span className="text-foreground">{lead.address ?? "Endereço não encontrado"}</span>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-border pt-4">
+                <SiteTextLink website={lead.website} />
+                <InstagramTextLink instagram={lead.instagram} />
+                <WhatsappTextLink whatsapp={lead.whatsapp} />
+                <PhoneTextLink phone={lead.phone} />
+                <EmailTextLink email={lead.email} />
+              </div>
+
               {lead.description && (
                 <p className="mt-4 border-t border-border pt-4 text-sm text-muted">{lead.description}</p>
               )}
@@ -103,8 +89,17 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
           </Card>
 
           <Card>
+            <CardHeader>
+              <CardTitle>Presença digital</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <WebsiteAnalysisPanel analysis={lead.websiteAnalysis} />
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Análise</CardTitle>
+              <CardTitle>Análise da IA</CardTitle>
               {lead.aiGenerated ? (
                 <span className="flex items-center gap-1 text-xs font-medium text-brand">
                   <Sparkles className="h-3.5 w-3.5" /> Gerada por IA
@@ -122,7 +117,7 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Oportunidades identificadas</CardTitle>
+              <CardTitle>Oportunidades e razões do score</CardTitle>
             </CardHeader>
             <CardContent>
               {lead.opportunities.length === 0 ? (
@@ -147,6 +142,18 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
             initialMessage={lead.outreachMessage}
             aiGenerated={lead.aiGenerated}
           />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-1.5">
+                <FileText className="h-4 w-4 text-slate-400" />
+                Notas internas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <NotesSection leadId={lead.id} notes={lead.notes} />
+            </CardContent>
+          </Card>
         </div>
 
         <div className="space-y-6">
@@ -164,8 +171,24 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
               </div>
               <p className="mt-3 text-xs leading-relaxed text-muted">
                 O score é apenas uma ferramenta interna de triagem para ajudar a priorizar
-                contatos — não é um julgamento definitivo sobre o negócio.
+                contatos — não é um julgamento definitivo sobre o negócio. Veja as razões ao lado.
               </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-1.5">
+                <ListTodo className="h-4 w-4 text-slate-400" />
+                Próxima ação
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <NextActionCard
+                leadId={lead.id}
+                initialNextAction={lead.nextAction}
+                initialNextActionDate={lead.nextActionDate}
+              />
             </CardContent>
           </Card>
 
@@ -192,6 +215,18 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
               <p className="mt-3 border-t border-border pt-3 text-xs text-muted">
                 Consulta de pesquisa: {lead.researchQuery ?? "não registrada"}
               </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-1.5">
+                <History className="h-4 w-4 text-slate-400" />
+                Histórico
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <StatusHistoryTimeline history={lead.statusHistory} />
             </CardContent>
           </Card>
         </div>
