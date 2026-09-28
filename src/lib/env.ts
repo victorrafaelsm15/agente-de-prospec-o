@@ -10,6 +10,9 @@ export const env = {
 
   anthropicApiKey: readEnv("ANTHROPIC_API_KEY"),
   anthropicModel: readEnv("ANTHROPIC_MODEL") ?? "claude-sonnet-5",
+  // Necessário quando a API key é de organização (não escopada a um único
+  // workspace) — a API da Anthropic exige esse header nesse caso.
+  anthropicWorkspaceId: readEnv("ANTHROPIC_WORKSPACE_ID"),
 
   googlePlacesApiKey: readEnv("GOOGLE_PLACES_API_KEY"),
 

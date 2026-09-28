@@ -6,7 +6,12 @@ let cachedClient: Anthropic | null = null;
 
 function getClient(): Anthropic {
   if (!cachedClient) {
-    cachedClient = new Anthropic({ apiKey: env.anthropicApiKey });
+    cachedClient = new Anthropic({
+      apiKey: env.anthropicApiKey,
+      defaultHeaders: env.anthropicWorkspaceId
+        ? { "anthropic-workspace-id": env.anthropicWorkspaceId }
+        : undefined,
+    });
   }
   return cachedClient;
 }
