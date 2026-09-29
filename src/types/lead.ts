@@ -236,6 +236,11 @@ export interface ActivityLogEntry {
   createdAt: string;
 }
 
+export interface SocialLink {
+  label: string;
+  url: string;
+}
+
 export interface CommercialSettings {
   businessName: string | null;
   services: string | null;
@@ -243,6 +248,13 @@ export interface CommercialSettings {
   targetAudience: string | null;
   tone: "profissional" | "consultivo" | "direto" | "casual" | null;
   emailSignature: string | null;
+  // Identidade visual e contato usados nas propostas (V4).
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  socialLinks: SocialLink[];
+  contactPhone: string | null;
+  contactEmail: string | null;
   updatedAt: string;
 }
 

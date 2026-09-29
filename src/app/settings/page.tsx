@@ -1,7 +1,10 @@
 import { getSettings } from "@/database/sdrData";
+import { listServices } from "@/database/proposalsData";
 import { isSupabaseConfigured } from "@/lib/env";
 import { isAnthropicConfigured, isGooglePlacesConfigured, isWhatsappApiConfigured, isEmailApiConfigured } from "@/lib/env";
 import { CommercialProfileForm } from "@/components/settings/CommercialProfileForm";
+import { BrandIdentityForm } from "@/components/settings/BrandIdentityForm";
+import { ServicesCatalogManager } from "@/components/settings/ServicesCatalogManager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { CheckCircle2, XCircle } from "lucide-react";
 
@@ -28,7 +31,7 @@ function IntegrationRow({ label, configured, hint }: { label: string; configured
 }
 
 export default async function SettingsPage() {
-  const settings = await getSettings();
+  const [settings, services] = await Promise.all([getSettings(), listServices(true)]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
@@ -41,6 +44,8 @@ export default async function SettingsPage() {
 
       <div className="space-y-6">
         <CommercialProfileForm initial={settings} />
+        <BrandIdentityForm initial={settings} />
+        <ServicesCatalogManager initial={services} />
 
         <Card>
           <CardHeader>

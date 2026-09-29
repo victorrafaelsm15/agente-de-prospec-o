@@ -1,11 +1,21 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { Menu, X, Sparkles } from "lucide-react";
 import { NavLinks } from "@/components/layout/NavLinks";
 
+// Páginas públicas voltadas ao cliente (link de proposta) não devem mostrar
+// a navegação interna do produto.
+const CHROMELESS_PREFIXES = ["/proposal/view/"];
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+
+  if (CHROMELESS_PREFIXES.some((prefix) => pathname?.startsWith(prefix))) {
+    return <div className="min-h-screen bg-background">{children}</div>;
+  }
 
   return (
     <div className="flex min-h-screen">

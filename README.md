@@ -25,6 +25,16 @@ de aprovação humana antes do envio, briefing comercial e resumo rápido do
 lead por IA, `/settings` com o perfil comercial usado para personalizar as
 mensagens, e limite de chamadas de IA por minuto.
 
+**V4 — Proposal AI:** `/proposals`, a central de propostas comerciais —
+briefing estruturado e diagnóstico gerados por IA (e editáveis), catálogo de
+serviços, escopo com preços calculados **sempre por código, nunca pela IA**,
+desconto percentual/fixo, condições de pagamento, prazo, validade com
+expiração automática, termos, próximos passos, geração de **PDF real**
+(`@react-pdf/renderer`, sem depender de navegador headless), **link público
+seguro** (`/proposal/view/[token]`) com aceite/recusa pelo cliente,
+versionamento (histórico completo de negociação) e trilha de auditoria
+completa. Proposta aceita atualiza o lead para **Cliente** automaticamente.
+
 ## Sumário
 
 - [Como funciona](#como-funciona)
@@ -61,8 +71,16 @@ mensagens, e limite de chamadas de IA por minuto.
 4. Em `/leads/[id]` você vê a análise completa, a presença digital detalhada
    (SEO básico, mobile, conversão, conteúdo), o score com as razões de cada
    ponto, contatos clicáveis (site/Instagram/WhatsApp/telefone/e-mail), a
-   mensagem sugerida (editável e copiável), notas internas, próxima ação e o
-   histórico de mudanças de status.
+   mensagem sugerida (editável e copiável), notas internas, próxima ação, o
+   histórico de mudanças de status e as **propostas** já criadas.
+5. Ao qualificar o lead, clique em **Criar proposta**: a IA gera um briefing
+   estruturado e um diagnóstico (você edita livremente), você monta o escopo
+   com preços — o sistema calcula subtotal/desconto/total, nunca a IA —,
+   define condições de pagamento, prazo e validade, e gera um **PDF
+   profissional** ou um **link público** para o cliente. O cliente acessa o
+   link, vê a proposta (sem nenhum dado interno do CRM), pode baixar o PDF e
+   **aceitar ou recusar** — ao aceitar, o lead vira **Cliente**
+   automaticamente e tudo fica registrado no histórico da proposta.
 
 O sistema **nunca inventa dados**: quando uma informação não pôde ser
 verificada, os campos mostram "Não encontrado" ou "Não foi possível
@@ -78,8 +96,10 @@ resultado.
   pesada), ícones via `lucide-react`.
 - **Banco de dados:** Supabase/PostgreSQL (schema em `database/schema.sql`).
 - **IA:** Anthropic Claude via `@anthropic-ai/sdk`, usada para gerar a
-  análise do lead e a mensagem de abordagem.
+  análise do lead, mensagens, briefings, diagnósticos e o assistente de IA.
 - **Busca de negócios:** Google Places API (New).
+- **PDF:** `@react-pdf/renderer` — gera o PDF em Node puro, sem precisar de
+  Chromium/Puppeteer (funciona em qualquer runtime serverless, Vercel incluso).
 
 ## Instalação
 
@@ -128,13 +148,16 @@ sempre `.env.local` (ignorado pelo git) para as chaves reais.
 1. Crie um projeto gratuito em [supabase.com](https://supabase.com).
 2. **Projeto novo:** no SQL Editor, rode o conteúdo de
    [`database/schema.sql`](database/schema.sql) (schema completo, já com os
-   campos da V3). Isso cria a tabela `leads` e as tabelas de CRM avançado
-   (`interactions`, `meetings`, `follow_ups`, `activity_log`, `settings`),
-   os índices e habilita Row Level Security.
+   campos da V4). Isso cria a tabela `leads`, as tabelas de CRM avançado
+   (`interactions`, `meetings`, `follow_ups`, `activity_log`, `settings`) e
+   as tabelas de propostas (`services`, `proposals`, `proposal_items`,
+   `proposal_versions`, `proposal_events`, `proposal_tokens`), os índices e
+   habilita Row Level Security.
    **Projeto que já rodava uma versão anterior:** rode, em ordem, as
    migrations que ainda não aplicou em
    [`database/migrations/`](database/migrations/) (001 = V1, 002 = V2,
-   003 = V3) — cada uma é aditiva e não apaga nenhum lead existente.
+   003 = V3, 004 = V4) — cada uma é aditiva e não apaga nenhum lead
+   ou dado existente.
 3. Em **Project Settings → API Keys**, copie:
    - `Project URL` → `NEXT_PUBLIC_SUPABASE_URL`
    - `service_role` (ou `secret key`, em projetos novos) → `SUPABASE_SERVICE_ROLE_KEY`
@@ -178,6 +201,33 @@ pesquisa**. Para testar o restante do fluxo (score, análise, UI) sem essa
 chave, defina `ENABLE_DEMO_MODE=true`: o agente passa a usar negócios
 fictícios, sempre marcados como dado de demonstração no campo "Fonte" de
 cada lead.
+
+## Propostas: PDF, link público e aceite (V4)
+
+Nenhuma configuração adicional é necessária — geração de PDF, link público e
+aceite funcionam assim que o Supabase está configurado (seção acima).
+
+- **PDF:** em qualquer proposta, clique em **PDF** (editor) ou **Baixar PDF**
+  (página pública). Gerado em Node puro via `@react-pdf/renderer` — não
+  depende de Chromium/Puppeteer, funciona em qualquer ambiente serverless.
+- **Link público:** no editor da proposta, em **Compartilhar e enviar**,
+  clique em **Gerar link**. O link usa um token aleatório de 24 bytes
+  (`crypto.randomBytes`), nunca o ID interno da proposta — gerar um novo link
+  revoga o anterior automaticamente. A página pública (`/proposal/view/[token]`)
+  só expõe campos client-safe (nunca score, notas internas ou dados de outros
+  leads) e funciona sem login.
+- **Envio:** ao clicar em **Enviar proposta**, você revisa a mensagem, confirma
+  explicitamente, e o WhatsApp/e-mail abre com o link já preenchido — a
+  interação é registrada no histórico do lead e o status da proposta muda
+  para "Enviada". Igual à V3, o envio real só acontece via API oficial se
+  `WHATSAPP_ACCESS_TOKEN`/`EMAIL_API_KEY` estiverem configurados.
+- **Aceite/recusa:** o cliente vê o link, pode baixar o PDF e clicar em
+  **Aceitar** ou **Recusar** (com confirmação e, na recusa, motivo opcional).
+  Aceitar atualiza a proposta para "Aprovada" **e o lead para "Cliente"**
+  automaticamente, registrando tudo no histórico da proposta
+  (`proposal_events`).
+- **Cálculos financeiros são sempre determinísticos** (`src/lib/proposalCalc.ts`)
+  — subtotal, desconto e total nunca são decididos pela IA, só por código.
 
 ## Rodando em desenvolvimento
 
@@ -297,6 +347,43 @@ Não configure `ENABLE_DEMO_MODE=true` em produção.
 - **Trilha de auditoria** (`activity_log`) de ações importantes da IA e do
   usuário (análise gerada, mensagem gerada, envio, mudança de status, etc.).
 
+**Novo na V4 — Proposal AI:**
+- **`/proposals`, central de propostas:** todas as propostas com status
+  (Rascunho/Pronta/Enviada/Visualizada/Em negociação/Aprovada/Recusada/
+  Expirada/Cancelada), filtro por status, e um resumo financeiro real (valor
+  em aberto/negociação/aprovado/recusado — soma dos totais reais, nunca uma
+  estimativa) também exibido no Dashboard.
+- **Briefing estruturado e diagnóstico por proposta**, gerados por IA a
+  partir dos dados reais do lead (empresa, presença digital, oportunidades
+  já calculadas) e totalmente editáveis — a versão editada pelo usuário é a
+  que vai para o PDF e para o cliente.
+- **Catálogo de serviços** (`/settings`) reutilizável entre propostas, com
+  nome, descrição, preço padrão e unidade.
+- **Escopo com preços 100% calculados por código** (`src/lib/proposalCalc.ts`)
+  — subtotal, desconto (percentual ou fixo) e total nunca são decididos pela
+  IA; ela só pode sugerir itens de escopo a partir de uma descrição livre,
+  sempre para revisão humana antes de entrar na proposta.
+- **Validade com expiração automática**, condições de pagamento, prazo,
+  termos e próximos passos — todos editáveis, com um botão "Refinar com IA"
+  por campo (presets como "deixar mais profissional" ou instrução livre) que
+  edita apenas o conteúdo, nunca preços ou condições.
+- **PDF profissional real** (não uma captura de tela) via
+  `@react-pdf/renderer`, testado gerando documentos válidos de múltiplas
+  páginas com tipografia, tabela de itens e identidade visual aplicada.
+- **Link público seguro** (`/proposal/view/[token]`, token aleatório, nunca
+  o ID da proposta) mostrando só o que o cliente deve ver, com aceite/recusa
+  testados de ponta a ponta — aceitar atualiza automaticamente o lead para
+  "Cliente" e recusar registra o motivo, sem apagar nada do CRM.
+- **Versionamento:** snapshot completo da proposta a cada negociação
+  relevante, com histórico consultável e comparável.
+- **Trilha de auditoria da proposta** (`proposal_events`): criada, editada,
+  PDF gerado, enviada, visualizada pelo cliente, aceita, recusada — cada
+  evento com autor (usuário, IA ou cliente) e data.
+- **Duplicar proposta** (nova proposta em Rascunho, mesmo escopo/valores,
+  histórico de envio não copiado).
+- **Integração com o CRM:** proposta aprovada → lead vira Cliente
+  automaticamente (testado); recusada → motivo registrado, lead preservado.
+
 ## O que depende de configuração externa
 
 | Funcionalidade | Depende de | Sem a chave |
@@ -307,47 +394,69 @@ Não configure `ENABLE_DEMO_MODE=true` em produção.
 | Análise, mensagens, briefing, resumo e assistente de IA | Anthropic Claude | Usa geração heurística baseada em regras, claramente identificada na interface |
 | Envio real de WhatsApp | WhatsApp Business Cloud API (Meta) | Abre o wa.me manualmente; você confirma o envio |
 | Envio real de e-mail | Provedor de e-mail transacional (ex.: Resend) | Abre seu cliente de e-mail via mailto:; você confirma o envio |
+| Propostas, PDF e link público | Supabase (mesma configuração acima) | Indisponíveis no modo de arquivo local — exigem as tabelas de `proposals` |
+| Briefing, diagnóstico e sugestão de escopo de propostas | Anthropic Claude | Usa geração heurística baseada em regras, claramente identificada na interface |
 | Pesquisa web genérica (`searchWeb`) | Nenhum provedor configurado nesta versão | Reservada para uso futuro (ex.: enriquecer leads com notícias/avaliações) |
+
+A geração de **PDF não depende de nenhuma configuração externa** — funciona
+com o Supabase configurado, sem chave adicional (`@react-pdf/renderer` roda
+em Node puro).
 
 ## Arquitetura do código
 
 ```
 src/
   app/                    # Rotas (App Router): dashboard, /agent, /leads, /leads/[id],
-                           #   /sdr, /settings, API routes
+                           #   /sdr, /settings, /proposals, /proposals/[id],
+                           #   /proposal/view/[token] (pública), API routes
   agents/                 # ProspectingAgent — orquestra as ferramentas de pesquisa
   tools/                  # Ferramentas, uma responsabilidade por arquivo: findBusinesses,
                            #   inspectWebsite, analyzeWebsite, generateLeadAnalysis,
                            #   generateOutreachMessage, generateEmailMessage, generateBriefing,
                            #   summarizeLead, computeNextActionRecommendation,
-                           #   answerSdrQuestion, sendWhatsapp, sendEmail, saveLead, searchWeb
+                           #   answerSdrQuestion, sendWhatsapp, sendEmail, saveLead, searchWeb,
+                           #   generateProposalBriefing, generateDiagnosis,
+                           #   generateScopeSuggestion, refineProposalText
   database/               # Repositório de leads (interface + adapters Supabase/arquivo) +
-                           #   sdrData.ts (interações, reuniões, follow-ups, auditoria, settings)
-  lib/                    # env, scoring, sdrInsights (taxas/insights), rateLimit, utils,
-                           #   contactLinks, clientes Supabase/Anthropic, hooks
-  components/             # UI, layout, dashboard, agent, leads, sdr, settings
-  types/                  # Tipos compartilhados (Lead, Interaction, Meeting, FollowUp, etc.)
-database/schema.sql        # Schema completo do Supabase/PostgreSQL (V1+V2+V3)
+                           #   sdrData.ts (interações, reuniões, follow-ups, auditoria, settings) +
+                           #   proposalsData.ts (propostas, itens, versões, eventos, tokens, serviços)
+  lib/                    # env, scoring, sdrInsights, proposalCalc (cálculos financeiros
+                           #   determinísticos), rateLimit, utils, contactLinks,
+                           #   clientes Supabase/Anthropic, hooks, pdf/ProposalDocument.tsx
+  components/             # UI, layout, dashboard, agent, leads, sdr, settings, proposals
+  types/                  # Tipos compartilhados (Lead, Interaction, Meeting, Proposal, etc.)
+database/schema.sql        # Schema completo do Supabase/PostgreSQL (V1+V2+V3+V4)
 database/migrations/       # Histórico de migrations (aplicar em projetos já existentes)
 ```
 
 A arquitetura foi pensada para crescer sem reescrever o agente: novas
 ferramentas entram em `src/tools/` com uma interface própria. **Nota de
-honestidade sobre a V3:** o `ProspectingAgent` continua chamando ferramentas
-de forma explícita e determinística (como na V1/V2) — não é um loop de
-tool-calling dinâmico onde um modelo decide quais funções chamar em tempo de
-execução. As recomendações de próxima ação e follow-up (`computeNextActionRecommendation`)
-também são 100% regras determinísticas, não a IA "opinando" — isso é
-deliberado, para manter todo output explicável e auditável antes de evoluir
-para um agente com tool-calling real em versões futuras.
+honestidade sobre a V3/V4:** o `ProspectingAgent` continua chamando
+ferramentas de forma explícita e determinística (como na V1/V2) — não é um
+loop de tool-calling dinâmico onde um modelo decide quais funções chamar em
+tempo de execução. As recomendações de próxima ação/follow-up e **todos os
+cálculos financeiros de propostas** (`src/lib/proposalCalc.ts`) são 100%
+regras determinísticas em código — nunca a IA "opinando" ou fazendo
+matemática. Isso é deliberado, para manter todo output explicável e
+auditável antes de evoluir para um agente com tool-calling real em versões
+futuras.
 
-### Fora do escopo desta V3 (propositalmente)
+### Fora do escopo desta V4 (propositalmente)
 
-Geração final de propostas/PDF, cobrança, marketplace, sistema de usuários
-multiusuário/multiempresa, automação de envio sem aprovação humana,
-integração de calendário real (Google Calendar/Outlook) e qualquer técnica
-para contornar bloqueios de plataformas (WhatsApp/Instagram) ficam para
-versões futuras (V4+), conforme definido no escopo do produto. A arquitetura
-(tabelas relacionais para interações/reuniões/follow-ups, trilha de
-auditoria, campo `briefing` no lead) já foi pensada para suportar a V4
-(Proposal AI) sem reescrever o que existe.
+Assinatura digital com validade jurídica, emissão fiscal, contabilidade,
+cobrança automática, gateway de pagamento, geração automática completa de
+sites, marketplace e sistema multiusuário/multiempresa complexo ficam para
+versões futuras, conforme definido no escopo do produto. O aceite da
+proposta é um **aceite comercial simples** (data/hora registrados), não uma
+assinatura digital com validade jurídica — se isso for necessário no futuro,
+deve ser integrada uma solução de assinatura eletrônica adequada (ex.:
+Clicksign, DocuSign).
+
+### Preparação para a V5 (Delivery AI)
+
+A V4 termina no momento em que a proposta é aprovada e o lead vira cliente.
+A arquitetura já deixa esse ponto de transição claro (`proposal_events` com
+o evento "aceita" + `leads.status = 'CLIENTE'`), pronto para uma V5 que crie
+um projeto a partir daí (briefing → tarefas → design → desenvolvimento →
+revisão → entrega → publicação → manutenção) sem precisar reescrever o fluxo
+de propostas.

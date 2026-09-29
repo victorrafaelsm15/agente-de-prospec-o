@@ -7,17 +7,20 @@ import { BarList } from "@/components/dashboard/BarList";
 import { TopOpportunities } from "@/components/dashboard/TopOpportunities";
 import { RecentResearch } from "@/components/dashboard/RecentResearch";
 import { CommercialRatesCard } from "@/components/dashboard/CommercialRatesCard";
+import { ProposalsFinancialSummary } from "@/components/proposals/ProposalsFinancialSummary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { STATUS_LABELS } from "@/lib/constants";
 import { computeCommercialRates } from "@/lib/sdrInsights";
+import { computeProposalFinancialSummary } from "@/lib/proposalCalc";
+import { listAllProposals } from "@/database/proposalsData";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const repository = await getLeadsRepository();
-  const [stats, recent, statusDistribution, scoreDistribution, recentResearch, topOpportunities, allLeads] =
+  const [stats, recent, statusDistribution, scoreDistribution, recentResearch, topOpportunities, allLeads, proposals] =
     await Promise.all([
       repository.getStats(),
       repository.getRecent(8),
@@ -26,8 +29,10 @@ export default async function DashboardPage() {
       repository.getRecentResearch(5),
       repository.getTopOpportunities(5),
       repository.listAll({}),
+      listAllProposals(),
     ]);
   const rates = computeCommercialRates(allLeads);
+  const proposalSummary = computeProposalFinancialSummary(proposals);
 
   const isEmpty = stats.total === 0;
 
@@ -126,6 +131,13 @@ export default async function DashboardPage() {
           <div className="mt-6">
             <CommercialRatesCard rates={rates} />
           </div>
+
+          {proposals.length > 0 && (
+            <div className="mt-6">
+              <h2 className="mb-3 text-sm font-semibold text-foreground">Pipeline de propostas</h2>
+              <ProposalsFinancialSummary summary={proposalSummary} />
+            </div>
+          )}
 
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
             <TopOpportunities leads={topOpportunities} />

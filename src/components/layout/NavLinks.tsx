@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Sparkles, Users, Radar, Settings } from "lucide-react";
+import { LayoutDashboard, Sparkles, Users, Radar, Settings, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/sdr", label: "SDR AI", icon: Radar },
   { href: "/agent", label: "Agente", icon: Sparkles },
   { href: "/leads", label: "Leads", icon: Users },
+  { href: "/proposals", label: "Propostas", icon: FileText },
   { href: "/settings", label: "Configurações", icon: Settings },
 ];
 

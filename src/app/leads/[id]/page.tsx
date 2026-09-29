@@ -14,7 +14,9 @@ import {
 } from "lucide-react";
 import { getLeadsRepository } from "@/database";
 import { listFollowUps, listInteractions, listMeetings } from "@/database/sdrData";
+import { listProposalsForLead } from "@/database/proposalsData";
 import { computeNextActionRecommendation } from "@/tools/computeNextActionRecommendation";
+import { LeadProposalsCard } from "@/components/proposals/LeadProposalsCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { PriorityBadge, StatusBadge } from "@/components/leads/StatusBadge";
 import { LeadStatusControl } from "@/components/leads/LeadStatusControl";
@@ -53,10 +55,11 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
 
   if (!lead) notFound();
 
-  const [interactions, followUps, meetings] = await Promise.all([
+  const [interactions, followUps, meetings, proposals] = await Promise.all([
     listInteractions(id),
     listFollowUps({ leadId: id }),
     listMeetings(id),
+    listProposalsForLead(id),
   ]);
 
   const recommendation = computeNextActionRecommendation(lead, interactions, followUps, meetings);
@@ -202,6 +205,18 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
             </CardHeader>
             <CardContent>
               <BriefingCard leadId={lead.id} initialBriefing={lead.briefing} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-1.5">
+                <FileText className="h-4 w-4 text-slate-400" />
+                Propostas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <LeadProposalsCard leadId={lead.id} proposals={proposals} />
             </CardContent>
           </Card>
 

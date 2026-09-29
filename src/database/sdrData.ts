@@ -290,6 +290,12 @@ function settingsRowToDomain(row: SettingsRow): CommercialSettings {
     targetAudience: row.target_audience,
     tone: row.tone,
     emailSignature: row.email_signature,
+    logoUrl: row.logo_url,
+    primaryColor: row.primary_color,
+    secondaryColor: row.secondary_color,
+    socialLinks: row.social_links ?? [],
+    contactPhone: row.contact_phone,
+    contactEmail: row.contact_email,
     updatedAt: row.updated_at,
   };
 }
@@ -301,6 +307,12 @@ const EMPTY_SETTINGS: CommercialSettings = {
   targetAudience: null,
   tone: null,
   emailSignature: null,
+  logoUrl: null,
+  primaryColor: null,
+  secondaryColor: null,
+  socialLinks: [],
+  contactPhone: null,
+  contactEmail: null,
   updatedAt: new Date(0).toISOString(),
 };
 
@@ -325,6 +337,12 @@ export async function updateSettings(
       target_audience: input.targetAudience,
       tone: input.tone,
       email_signature: input.emailSignature,
+      logo_url: input.logoUrl,
+      primary_color: input.primaryColor,
+      secondary_color: input.secondaryColor,
+      social_links: input.socialLinks,
+      contact_phone: input.contactPhone,
+      contact_email: input.contactEmail,
     })
     .eq("id", "default")
     .select("*")
